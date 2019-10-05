@@ -193,69 +193,6 @@ char *paramnames[]= {
 	"ALIGN" };
 
 /*
-** Following array is a collection of flags indicating which
-** tests to perform.
-*/
-int tests_to_do[NUMTESTS];
-
-/*
-** Buffer for holding output text.
-*/
-char buffer[BUF_SIZ];
-
-/*
-** Global parameters.
-*/
-ulong global_min_ticks;         /* Minimum ticks */
-ulong global_min_seconds;       /* Minimum seconds tests run */
-int global_allstats;            /* Statistics dump flag */
-char global_ofile_name[BUF_SIZ];/* Output file name */
-FILE *global_ofile;             /* Output file */
-int global_custrun;             /* Custom run flag */
-int write_to_file;              /* Write output to file */
-int global_align;		/* Memory alignment */
-
-/*
-** Following global is the memory array.  This is used to store
-** original and aligned (modified) memory addresses.
-*/
-ulong mem_array[2][MEM_ARRAY_SIZE];
-int mem_array_ents;		/* # of active entries */
-
-/*
-** Following are global structures, one built for
-** each of the tests.
-*/
-SortStruct global_numsortstruct;        /* For numeric sort */
-SortStruct global_strsortstruct;        /* For string sort */
-BitOpStruct global_bitopstruct;         /* For bitfield operations */
-EmFloatStruct global_emfloatstruct;     /* For emul. float. point */
-FourierStruct global_fourierstruct;     /* For fourier test */
-AssignStruct global_assignstruct;       /* For assignment algorithm */
-IDEAStruct global_ideastruct;           /* For IDEA encryption */
-HuffStruct global_huffstruct;           /* For Huffman compression */
-NNetStruct global_nnetstruct;           /* For Neural Net */
-LUStruct global_lustruct;               /* For LU decomposition */
-
-/*
-** The following array of function struct pointers lets
-** us very rapidly map a function to its controlling
-** data structure. NOTE: These must match the "TF_xxx"
-** constants above.
-*/
-void *global_fstruct[] =
-{       (void *)&global_numsortstruct,
-        (void *)&global_strsortstruct,
-        (void *)&global_bitopstruct,
-        (void *)&global_emfloatstruct,
-        (void *)&global_fourierstruct,
-        (void *)&global_assignstruct,
-        (void *)&global_ideastruct,
-        (void *)&global_huffstruct,
-        (void *)&global_nnetstruct,
-        (void *)&global_lustruct };
-
-/*
 ** Following globals added to support command line emulation on
 ** the Macintosh....which doesn't have command lines.
 */
@@ -337,20 +274,3 @@ extern void DoNNET(void);
 extern void DoLU(void);
 
 extern void ErrorExit(void);    /* From SYSSPEC */
-
-/*
-** Array of pointers to the benchmark functions.
-*/
-void (*funcpointer[])(void) =
-{       DoNumSort,
-        DoStringSort,
-        DoBitops,
-        DoEmFloat,
-        DoFourier,
-        DoAssign,
-        DoIDEA,
-        DoHuffman,
-        DoNNET,
-        DoLU };
-
-
