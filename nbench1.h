@@ -326,38 +326,6 @@ static int GetCompBit(u8 *comparray, u32 bitoffset);
 #define STOP 0.1                /* when worst_error less than STOP, training is done */
 
 /*
-** GLOBALS
-*/
-double  mid_wts[MID_SIZE][IN_SIZE];     /* middle layer weights */
-double  out_wts[OUT_SIZE][MID_SIZE];    /* output layer weights */
-double  mid_out[MID_SIZE];              /* middle layer output */
-double  out_out[OUT_SIZE];              /* output layer output */
-double  mid_error[MID_SIZE];            /* middle layer errors */
-double  out_error[OUT_SIZE];            /* output layer errors */
-double  mid_wt_change[MID_SIZE][IN_SIZE]; /* storage for last wt change */
-double  out_wt_change[OUT_SIZE][MID_SIZE]; /* storage for last wt change */
-double  in_pats[MAXPATS][IN_SIZE];      /* input patterns */
-double  out_pats[MAXPATS][OUT_SIZE];    /* desired output patterns */
-double  tot_out_error[MAXPATS];         /* measure of whether net is done */
-double  out_wt_cum_change[OUT_SIZE][MID_SIZE]; /* accumulated wt changes */
-double  mid_wt_cum_change[MID_SIZE][IN_SIZE];  /* accumulated wt changes */
-
-double  worst_error; /* worst error each pass through the data */
-double  average_error; /* average error each pass through the data */
-double  avg_out_error[MAXPATS]; /* average error each pattern */
-
-int iteration_count;    /* number of passes thru network so far */
-int numpats;            /* number of patterns in data file */
-int numpasses;          /* number of training passes through data file */
-int learned;            /* flag--if TRUE, network has learned all patterns */
-
-/*
-** The Neural Net test requires an input data file.
-** The name is specified here.
-*/
-char *inpath="NNET.DAT";
-
-/*
 ** PROTOTYPES
 */
 void DoNNET(void);

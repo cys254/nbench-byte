@@ -130,6 +130,10 @@ misc.o: misc.h misc.c Makefile
 	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
 		-c misc.c
 
+numsort.o: numsort.c numsort.h nmglobal.h nbench1.h
+	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
+		-c numsort.c
+
 nbench1.o: nbench1.h nbench1.c wordcat.h nmglobal.h pointer.h Makefile
 	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
 		-c nbench1.c
@@ -138,9 +142,9 @@ sysspec.o: sysspec.h sysspec.c nmglobal.h pointer.h Makefile
 	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
 		-c sysspec.c
 
-nbench: emfloat.o misc.o nbench0.o nbench1.o sysspec.o hardware.o
+nbench: emfloat.o misc.o nbench0.o numsort.o nbench1.o sysspec.o hardware.o
 	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS) $(LINKFLAGS)\
-		emfloat.o misc.o nbench0.o nbench1.o sysspec.o hardware.o\
+		emfloat.o misc.o nbench0.o numsort.o nbench1.o sysspec.o hardware.o\
 		-o nbench -lm
 
 ##########################################################################
