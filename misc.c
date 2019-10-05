@@ -43,7 +43,7 @@
 /*
 long randwc(long num)
 {
-	return(randnum(0L)%num);
+    return(randnum(0L)%num);
 }
 */
 /*
@@ -51,7 +51,7 @@ long randwc(long num)
 */
 int32 randwc(int32 num)
 {
-	return(randnum((int32)0)%num);
+    return(randnum((int32)0)%num);
 }
 
 /***************************
@@ -73,12 +73,12 @@ return((unsigned long)temp);
 */
 u32 abs_randwc(u32 num)
 {
-int32 temp;		/* Temporary storage */ 
+    int32 temp;     /* Temporary storage */
 
-temp=randwc(num);
-if(temp<0) temp=(int32)0-temp;
+    temp=randwc(num);
+    if(temp<0) temp=(int32)0-temp;
 
-return((u32)temp);
+    return((u32)temp);
 }
 
 /****************************
@@ -92,29 +92,29 @@ return((u32)temp);
 /*
 long randnum(long lngval)
 {
-	register long interm;
-	static long randw[2] = { 13L , 117L };
+    register long interm;
+    static long randw[2] = { 13L , 117L };
 
-	if (lngval!=0L)
-	{	randw[0]=13L; randw[1]=117L; }
+    if (lngval!=0L)
+    {   randw[0]=13L; randw[1]=117L; }
 
-	interm=(randw[0]*254754L+randw[1]*529562L)%999563L;
-	randw[1]=randw[0];
-	randw[0]=interm;
-	return(interm);
+    interm=(randw[0]*254754L+randw[1]*529562L)%999563L;
+    randw[1]=randw[0];
+    randw[0]=interm;
+    return(interm);
 }
 */
 int32 randnum(int32 lngval)
 {
-	register int32 interm;
-	static int32 randw[2] = { (int32)13 , (int32)117 };
+    register int32 interm;
+    static int32 randw[2] = { (int32)13 , (int32)117 };
 
-	if (lngval!=(int32)0)
-	{	randw[0]=(int32)13; randw[1]=(int32)117; }
+    if (lngval!=(int32)0)
+    {   randw[0]=(int32)13; randw[1]=(int32)117; }
 
-	interm=(randw[0]*(int32)254754+randw[1]*(int32)529562)%(int32)999563;
-	randw[1]=randw[0];
-	randw[0]=interm;
-	return(interm);
+    interm=(randw[0]*(int32)254754+randw[1]*(int32)529562)%(int32)999563;
+    randw[1]=randw[0];
+    randw[0]=interm;
+    return(interm);
 }
 
