@@ -33,7 +33,6 @@ unsigned long abs_randwc(unsigned long num);
 long randnum(long lngval);
 */
 
-#include "nmglobal.h"
 int32 randwc(int32 num);
 u32 abs_randwc(u32 num);
 int32 randnum(int32 lngval);

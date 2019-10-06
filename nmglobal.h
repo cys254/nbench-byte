@@ -517,3 +517,19 @@ typedef struct {
         double iterspersec;     /* Results */
 } LUStruct;
 
+/*
+** EXTERNALS
+*/
+extern ulong global_min_ticks;
+
+extern SortStruct global_numsortstruct;
+extern SortStruct global_strsortstruct;
+extern BitOpStruct global_bitopstruct;
+extern EmFloatStruct global_emfloatstruct;
+extern FourierStruct global_fourierstruct;
+extern AssignStruct global_assignstruct;
+extern IDEAStruct global_ideastruct;
+extern HuffStruct global_huffstruct;
+extern NNetStruct global_nnetstruct;
+extern LUStruct global_lustruct;
+

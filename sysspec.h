@@ -31,8 +31,6 @@
 #include <time.h>
 #include <string.h>
 
-#include "nmglobal.h"
-
 #if !defined(MAC) && !defined(OSX)
 #include <malloc.h>
 #endif

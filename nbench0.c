@@ -51,6 +51,7 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
+#include "nmglobal.h"
 #include "sysspec.h"
 #include "nbench0.h"
 #include "hardware.h"

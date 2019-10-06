@@ -20,6 +20,7 @@
 */
 
 #include <stdio.h>
+#include "nmglobal.h"
 #include "misc.h"
 
 /***********************************************************

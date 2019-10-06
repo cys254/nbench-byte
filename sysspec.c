@@ -34,6 +34,7 @@
 ** to new hardware/new O.S., this is the first place to
 ** start.
 */
+#include "nmglobal.h"
 #include "sysspec.h"
 
 #ifdef DOS16

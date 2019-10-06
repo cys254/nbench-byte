@@ -11,16 +11,6 @@
 ** Included in this source     **
 ** file:                       **
 **  Numeric Heapsort           **
-**  String Heapsort            **
-**  Bitfield test              **
-**  Floating point emulation   **
-**  Fourier coefficients       **
-**  Assignment algorithm       **
-**  IDEA Encyption             **
-**  Huffman compression        **
-**  Back prop. neural net      **
-**  LU Decomposition           **
-**    (linear equations)       **
 ** ----------                  **
 ** Rick Grehan, BYTE Magazine  **
 *********************************
@@ -61,11 +51,11 @@
 #include <strings.h>
 #include <math.h>
 #include "nmglobal.h"
-#include "nbench1.h"
+#include "sysspec.h"
+#include "misc.h"
 
 #ifdef DEBUG
 static int numsort_status=0;
-static int stringsort_status=0;
 #endif
 
 /*********************
@@ -74,6 +64,21 @@ static int stringsort_status=0;
 ** This test implements a heapsort algorithm, performed on an
 ** array of longs.
 */
+
+void DoNumSort(void);
+
+static ulong DoNumSortIteration(farlong *arraybase,
+		ulong arraysize,
+		uint numarrays);
+static void LoadNumArrayWithRand(farlong *array,
+		ulong arraysize,
+		uint numarrays);
+static void NumHeapSort(farlong *array,
+		ulong bottom,
+		ulong top);
+static void NumSift(farlong *array,
+		ulong i,
+		ulong j);
 
 /**************
 ** DoNumSort **

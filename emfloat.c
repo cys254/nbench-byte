@@ -28,6 +28,145 @@
 #include <string.h>
 #include "nmglobal.h"
 #include "emfloat.h"
+#include "sysspec.h"
+
+/*****************************
+** FLOATING-POINT EMULATION **
+*****************************/
+
+/**************
+** DoEmFloat **
+***************
+** Perform the floating-point emulation routines portion of the
+** CPU benchmark.  Returns the operations per second.
+*/
+void DoEmFloat(void)
+{
+    EmFloatStruct *locemfloatstruct;        /* Local structure */
+    InternalFPF *abase;             /* Base of A array */
+    InternalFPF *bbase;             /* Base of B array */
+    InternalFPF *cbase;             /* Base of C array */
+    ulong accumtime;                /* Accumulated time in ticks */
+    double iterations;              /* # of iterations */
+    ulong tickcount;                /* # of ticks */
+    char *errorcontext;             /* Error context string pointer */
+    int systemerror;                /* For holding error code */
+    ulong loops;                    /* # of loops */
+
+    /*
+     ** Link to global structure
+     */
+    locemfloatstruct=&global_emfloatstruct;
+
+    /*
+     ** Set the error context
+     */
+    errorcontext="CPU:Floating Emulation";
+
+
+    /*
+     ** Test the emulation routines.
+     */
+#ifdef DEBUG
+#endif
+
+    abase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
+            &systemerror);
+    if(systemerror)
+    {       ReportError(errorcontext,systemerror);
+        ErrorExit();
+    }
+
+    bbase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
+            &systemerror);
+    if(systemerror)
+    {       ReportError(errorcontext,systemerror);
+        FreeMemory((farvoid *)abase,&systemerror);
+        ErrorExit();
+    }
+
+    cbase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
+            &systemerror);
+    if(systemerror)
+    {       ReportError(errorcontext,systemerror);
+        FreeMemory((farvoid *)abase,&systemerror);
+        FreeMemory((farvoid *)bbase,&systemerror);
+        ErrorExit();
+    }
+
+    /*
+     ** Set up the arrays
+     */
+    SetupCPUEmFloatArrays(abase,bbase,cbase,locemfloatstruct->arraysize);
+
+    /*
+     ** See if we need to do self-adjusting code.
+     */
+    if(locemfloatstruct->adjust==0)
+    {
+        locemfloatstruct->loops=0;
+
+        /*
+         ** Do an iteration of the tests.  If the elapsed time is
+         ** less than minimum, increase the loop count and try
+         ** again.
+         */
+        for(loops=1;loops<CPUEMFLOATLOOPMAX;loops+=loops)
+        {       tickcount=DoEmFloatIteration(abase,bbase,cbase,
+                locemfloatstruct->arraysize,
+                loops);
+        if(tickcount>global_min_ticks)
+        {       locemfloatstruct->loops=loops;
+            break;
+        }
+        }
+    }
+
+    /*
+     ** Verify that selft adjustment code worked.
+     */
+    if(locemfloatstruct->loops==0)
+    {       printf("CPU:EMFPU -- CMPUEMFLOATLOOPMAX limit hit\n");
+        FreeMemory((farvoid *)abase,&systemerror);
+        FreeMemory((farvoid *)bbase,&systemerror);
+        FreeMemory((farvoid *)cbase,&systemerror);
+        ErrorExit();
+    }
+
+    /*
+     ** All's well if we get here.  Repeatedly perform floating
+     ** tests until the accumulated time is greater than the
+     ** # of seconds requested.
+     ** Each iteration performs arraysize * 3 operations.
+     */
+    accumtime=0L;
+    iterations=(double)0.0;
+    do {
+        accumtime+=DoEmFloatIteration(abase,bbase,cbase,
+                locemfloatstruct->arraysize,
+                locemfloatstruct->loops);
+        iterations+=(double)1.0;
+    } while(TicksToSecs(accumtime)<locemfloatstruct->request_secs);
+
+
+    /*
+     ** Clean up, calculate results, and go home.
+     ** Also, indicate that adjustment is done.
+     */
+    FreeMemory((farvoid *)abase,&systemerror);
+    FreeMemory((farvoid *)bbase,&systemerror);
+    FreeMemory((farvoid *)cbase,&systemerror);
+
+    locemfloatstruct->emflops=(iterations*(double)locemfloatstruct->loops)/
+        (double)TicksToFracSecs(accumtime);
+    if(locemfloatstruct->adjust==0)
+        locemfloatstruct->adjust=1;
+
+#ifdef DEBUG
+    printf("----------------------------------------------------------------------------\n");
+#endif
+    return;
+}
 
 /*
 ** Floating-point emulator.
