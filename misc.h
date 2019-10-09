@@ -37,4 +37,6 @@ int32 randwc(int32 num);
 u32 abs_randwc(u32 num);
 int32 randnum(int32 lngval);
 
+#define nbench_set_max(max, x) max = x > max ? x : max
 
+void merge_result(TestResultStruct *merged_result, TestResultStruct *single_result);

@@ -119,3 +119,14 @@ int32 randnum(int32 lngval)
     return(interm);
 }
 
+/*******************************
+*         merge_result()       *
+********************************
+**  merge test result from multiple threads
+*/
+void merge_result(TestResultStruct *merged_result, TestResultStruct *single_result)
+{
+    merged_result->iterations += single_result->iterations;
+    merged_result->cpusecs += single_result->cpusecs;
+    nbench_set_max(merged_result->realsecs, single_result->realsecs);
+}

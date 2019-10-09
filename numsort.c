@@ -48,11 +48,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <math.h>
 #include "nmglobal.h"
 #include "sysspec.h"
 #include "misc.h"
+
+#ifdef LOGICAL_CPUS
+#include <pthread.h>
+#endif
 
 #ifdef DEBUG
 static int numsort_status=0;
@@ -66,10 +69,13 @@ static int numsort_status=0;
 */
 
 void DoNumSort(void);
+void DoNumSortAdjust(TestControlStruct *numsortstruct);
 
-static ulong DoNumSortIteration(farlong *arraybase,
+static void *NumSortFunc(void *data);
+static void DoNumSortIteration(farlong *arraybase,
 		ulong arraysize,
-		uint numarrays);
+		uint numarrays,
+        StopWatchStruct *stopwatch);
 static void LoadNumArrayWithRand(farlong *array,
 		ulong arraysize,
 		uint numarrays);
@@ -91,12 +97,17 @@ static void NumSift(farlong *array,
 
 void DoNumSort(void)
 {
-    SortStruct *numsortstruct;      /* Local pointer to global struct */
-    farlong *arraybase;     /* Base pointers of array */
-    long accumtime;         /* Accumulated time */
-    double iterations;      /* Iteration counter */
+    TestControlStruct *numsortstruct;      /* Local pointer to global struct */
     char *errorcontext;     /* Error context string pointer */
-    int systemerror;        /* For holding error codes */
+#ifdef LOGICAL_CPUS
+    TestThreadData  testdatas[LOGICAL_CPUS];        /* Test data to pass to thread func */
+    pthread_t threads[LOGICAL_CPUS];                /* pthread handles */
+    int i;
+    int concurrency = LOGICAL_CPUS;                 /* Number of concurrent threads */
+#else
+    TestThreadData  testdatas[1];        /* Test data to pass to thread func */
+    int concurrency = 1;
+#endif
 
     /*
      ** Link to global structure
@@ -107,10 +118,50 @@ void DoNumSort(void)
      ** Set the error context string.
      */
     errorcontext="CPU:Numeric Sort";
+    numsortstruct->errorcontext = errorcontext;
 
     /*
      ** See if we need to do self adjustment code.
      */
+    DoNumSortAdjust(numsortstruct);
+
+#ifdef LOGICAL_CPUS
+    for (i=1;i<concurrency;i++) {
+        int systemerror;        /* For holding error codes */
+        testdatas[i].control = numsortstruct;
+        systemerror = pthread_create(&threads[i], 0, NumSortFunc, &testdatas[i]);
+        if(systemerror)
+        {
+            ReportError(errorcontext,systemerror);
+            ErrorExit();
+        }
+    }
+#endif
+    testdatas[0].control = numsortstruct;
+    NumSortFunc(&testdatas[0]);
+    numsortstruct->result = testdatas[0].result;
+#ifdef LOGICAL_CPUS
+    for (i=1;i<concurrency;i++) {
+        pthread_join(threads[i], 0);
+        merge_result(&numsortstruct->result, &testdatas[i].result);
+    }
+#endif
+
+    numsortstruct->cpurate  = numsortstruct->result.iterations * (double)numsortstruct->numarrays / ( numsortstruct->result.cpusecs / concurrency );
+    numsortstruct->realrate = numsortstruct->result.iterations * (double)numsortstruct->numarrays / numsortstruct->result.realsecs;
+
+    printf("iterations=%f %d realsecs=%f cpusecs=%f cpurate=%f\n", numsortstruct->result.iterations, numsortstruct->numarrays,
+              numsortstruct->result.realsecs, numsortstruct->result.cpusecs, numsortstruct->cpurate);
+
+#ifdef DEBUG
+    if (numsort_status==0) printf("Numeric sort: OK\n");
+    numsort_status=0;
+#endif
+    return;
+}
+
+void DoNumSortAdjust(TestControlStruct *numsortstruct)
+{
     if(numsortstruct->adjust==0)
     {
         /*
@@ -119,6 +170,9 @@ void DoNumSort(void)
          ** are built and sorted.  This process continues until
          ** enough arrays are built to handle the tolerance.
          */
+        farlong *arraybase;     /* Base pointers of array */
+        int systemerror;        /* For holding error codes */
+        StopWatchStruct stopwatch;             /* Stop watch to time the test */
         numsortstruct->numarrays=1;
         while(1)
         {
@@ -129,7 +183,8 @@ void DoNumSort(void)
                     numsortstruct->numarrays * numsortstruct->arraysize,
                     &systemerror);
             if(systemerror)
-            {       ReportError(errorcontext,systemerror);
+            {
+                ReportError(numsortstruct->errorcontext,systemerror);
                 FreeMemory((farvoid *)arraybase,
                         &systemerror);
                 ErrorExit();
@@ -141,46 +196,61 @@ void DoNumSort(void)
              ** minimum, then allocate for more arrays and
              ** try again.
              */
-            if(DoNumSortIteration(arraybase,
+            ResetStopWatch(&stopwatch);
+            DoNumSortIteration(arraybase,
                         numsortstruct->arraysize,
-                        numsortstruct->numarrays)>global_min_ticks)
-                break;          /* We're ok...exit */
-
+                        numsortstruct->numarrays,
+                        &stopwatch);
             FreeMemory((farvoid *)arraybase,&systemerror);
+            if (stopwatch.cpusecs > 0.0001)
+                break;          /* We're ok...exit */
             if(numsortstruct->numarrays++>NUMNUMARRAYS)
-            {       printf("CPU:NSORT -- NUMNUMARRAYS hit.\n");
+            {
+                printf("CPU:NSORT -- NUMNUMARRAYS hit.\n");
                 ErrorExit();
             }
         }
+        numsortstruct->adjust = 1;
     }
-    else
-    {       /*
-             ** Allocate space for arrays
-             */
-        arraybase=(farlong *)AllocateMemory(sizeof(long) *
-                numsortstruct->numarrays * numsortstruct->arraysize,
-                &systemerror);
-        if(systemerror)
-        {       ReportError(errorcontext,systemerror);
-            FreeMemory((farvoid *)arraybase,
-                    &systemerror);
-            ErrorExit();
-        }
+}
 
+void *NumSortFunc(void *data)
+{
+    TestThreadData *testdata;              /* test data passed from thread func */
+    TestControlStruct *numsortstruct;      /* Local pointer to global struct */
+    StopWatchStruct stopwatch;             /* Stop watch to time the test */
+    farlong *arraybase;     /* Base pointers of array */
+    double iterations;      /* Iteration counter */
+    int systemerror;        /* For holding error codes */
+
+    testdata = (TestThreadData *)data;
+    numsortstruct = testdata->control;
+
+    arraybase=(farlong *)AllocateMemory(sizeof(long) *
+               numsortstruct->numarrays * numsortstruct->arraysize,
+               &systemerror);
+    if(systemerror)
+    {
+        ReportError(numsortstruct->errorcontext,systemerror);
+        FreeMemory((farvoid *)arraybase,
+                    &systemerror);
+        ErrorExit();
     }
+
     /*
      ** All's well if we get here.  Repeatedly perform sorts until the
      ** accumulated elapsed time is greater than # of seconds requested.
      */
-    accumtime=0L;
     iterations=(double)0.0;
+    ResetStopWatch(&stopwatch);
 
     do {
-        accumtime+=DoNumSortIteration(arraybase,
+        DoNumSortIteration(arraybase,
                 numsortstruct->arraysize,
-                numsortstruct->numarrays);
+                numsortstruct->numarrays,
+                &stopwatch);
         iterations+=(double)1.0;
-    } while(TicksToSecs(accumtime)<numsortstruct->request_secs);
+    } while(stopwatch.realsecs<numsortstruct->request_secs);
 
     /*
      ** Clean up, calculate results, and go home.  Be sure to
@@ -188,17 +258,10 @@ void DoNumSort(void)
      */
     FreeMemory((farvoid *)arraybase,&systemerror);
 
-    numsortstruct->sortspersec=iterations *
-        (double)numsortstruct->numarrays / TicksToFracSecs(accumtime);
-
-    if(numsortstruct->adjust==0)
-        numsortstruct->adjust=1;
-
-#ifdef DEBUG
-    if (numsort_status==0) printf("Numeric sort: OK\n");
-    numsort_status=0;
-#endif
-    return;
+    testdata->result.iterations = iterations;
+    testdata->result.cpusecs = stopwatch.cpusecs;
+    testdata->result.realsecs = stopwatch.realsecs;
+    return 0;
 }
 
 /***********************
@@ -208,11 +271,11 @@ void DoNumSort(void)
 ** sort benchmark.  It returns the number of ticks
 ** elapsed for the iteration.
 */
-static ulong DoNumSortIteration(farlong *arraybase,
+static void DoNumSortIteration(farlong *arraybase,
         ulong arraysize,
-        uint numarrays)
+        uint numarrays,
+        StopWatchStruct *stopwatch)
 {
-    ulong elapsed;          /* Elapsed ticks */
     ulong i;
     /*
      ** Load up the array with random numbers
@@ -222,7 +285,7 @@ static ulong DoNumSortIteration(farlong *arraybase,
     /*
      ** Start the stopwatch
      */
-    elapsed=StartStopwatch();
+    StartStopWatch(stopwatch);
 
     /*
      ** Execute a heap of heapsorts
@@ -233,7 +296,7 @@ static ulong DoNumSortIteration(farlong *arraybase,
     /*
      ** Get elapsed time
      */
-    elapsed=StopStopwatch(elapsed);
+    StopStopWatch(stopwatch);
 #ifdef DEBUG
     {
         for(i=0;i<arraysize-1;i++)
@@ -249,8 +312,6 @@ static ulong DoNumSortIteration(farlong *arraybase,
         }
     }
 #endif
-
-    return(elapsed);
 }
 
 /*************************

@@ -75,6 +75,25 @@ HANDLE hThlp;
 FARPROC lpfn;
 #endif
 
+/*
+** TYPEDEFS
+*/
+typedef struct {
+#ifdef MACTIMEMGR
+    struct TMTask myTMTask;
+#endif
+#ifdef WIN31TIMER
+    TIMERINFO win31tinfo;
+#endif
+#ifdef CLOCK_GETTIME
+    struct timespec cputime;
+    struct timespec realtime;
+#endif
+    ulong ticks;
+    double cpusecs;
+    double realsecs;
+} StopWatchStruct;
+
 /**************
 ** EXTERNALS **
 **************/
@@ -163,4 +182,10 @@ unsigned long StopStopwatch(unsigned long startticks);
 unsigned long TicksToSecs(unsigned long tickamount);
 
 double TicksToFracSecs(unsigned long tickamount);
+
+void StartStopWatch(StopWatchStruct *stopwatch);
+
+void StopStopWatch(StopWatchStruct *stopwatch);
+
+void ResetStopWatch(StopWatchStruct *stopwatch);
 

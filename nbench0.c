@@ -77,7 +77,7 @@ int write_to_file;              /* Write output to file */
 ** Following are global structures, one built for
 ** each of the tests.
 */
-SortStruct global_numsortstruct;        /* For numeric sort */
+TestControlStruct global_numsortstruct;        /* For numeric sort */
 SortStruct global_strsortstruct;        /* For string sort */
 BitOpStruct global_bitopstruct;         /* For bitfield operations */
 EmFloatStruct global_emfloatstruct;     /* For emul. float. point */
@@ -628,6 +628,7 @@ static void read_comfile(FILE *cfile)
             case PF_EMFLOOPS:       /* EMFLOOPS */
                 global_emfloatstruct.loops=
                     (ulong)atol(eptr);
+                global_emfloatstruct.adjust=1;
                 break;
 
             case PF_EMFMINS:        /* EMFMINSECOND */
@@ -657,6 +658,7 @@ static void read_comfile(FILE *cfile)
             case PF_AARRAYS:        /* ASSIGNARRAYS */
                 global_assignstruct.numarrays=
                     (ulong)atol(eptr);
+                global_assignstruct.adjust=1;
                 break;
 
             case PF_ASSIGNMINS:     /* ASSIGNMINSECONDS */
@@ -676,6 +678,7 @@ static void read_comfile(FILE *cfile)
             case PF_IDEALOOPS:      /* IDEALOOPS */
                 global_ideastruct.loops=
                     (ulong)atol(eptr);
+                global_ideastruct.adjust=1;
                 break;
 
             case PF_IDEAMINS:       /* IDEAMINSECONDS */
@@ -1030,7 +1033,7 @@ static double getscore(int fid)
     switch(fid)
     {
         case TF_NUMSORT:
-            return(global_numsortstruct.sortspersec);
+            return(global_numsortstruct.cpurate);
         case TF_SSORT:
             return(global_strsortstruct.sortspersec);
         case TF_BITOP:

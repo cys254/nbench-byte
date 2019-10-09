@@ -70,14 +70,21 @@
 **  CLOCKWCT
 **  MACTIMEMGR
 **  WIN31TIMER
+**  CLOCK_GETTIME
 */
+
+/*
+** Define CLOCK_GETTIME if you are using the clock_gettime()
+** This is the default in most cases and required for multi-thread support.
+*/
+#define CLOCK_GETTIME
 
 /*
 ** Define CLOCKWCPS if you are using the clock() routine and the
 ** constant used as the divisor to determine seconds is
-** CLOCKS_PER_SEC.  This is the default in most cases.
+** CLOCKS_PER_SEC.
 */
-#define CLOCKWCPS
+/* #define CLOCKWCPS */
 
 /*
 ** Define CLOCKWCT if you are using the clock() routine and the
@@ -197,6 +204,12 @@
 */
 #define MEM_ARRAY_SIZE 20
 
+
+/*
+** Number of available logical cpus, used for multithread benchmark
+*/
+#define LOGICAL_CPUS 8
+
 /*
 ** TYPEDEFS
 */
@@ -250,6 +263,34 @@ typedef unsigned long u32;      /* Unsigned 32 bits */
 typedef long int32;              /* Signed 32 bit integer */
 #endif
 
+/*
+** TYPEDEFS
+*/
+typedef struct {
+    double iterations;     /* # of iterations */
+    double cpusecs;        /* CPU time used in seconds */
+    double realsecs;       /* Real time used in seconds */
+} TestResultStruct;
+
+typedef struct {
+    int adjust;             /* Set adjust code */
+    ulong request_secs;     /* # of seconds requested */
+    TestResultStruct result;/* test result */
+    ushort numarrays;       /* # of arrays */
+    ulong arraysize;        /* # of elements in array */
+    ulong loops;            /* Loops per iterations */
+    ulong bitoparraysize;           /* Total # of bitfield ops */
+    ulong bitfieldarraysize;        /* Bit field array size */
+    double cpurate;         /* iteration or operations per second in cpu time */
+    double realrate;        /* iteration or operations per second in real time */
+    char *errorcontext;     /* Error context string pointer */
+} TestControlStruct;
+
+typedef struct {
+    TestControlStruct *control; /* point to test control */
+    TestResultStruct result;    /* test result to return */
+} TestThreadData;
+
 /*****************
 ** NUMERIC SORT **
 *****************/
@@ -274,7 +315,6 @@ typedef long int32;              /* Signed 32 bit integer */
 ** with most of the constants here, it is adjustable.
 */
 #define NUMARRAYSIZE    8111L
-
 
 /*
 ** TYPEDEFS
@@ -522,7 +562,7 @@ typedef struct {
 */
 extern ulong global_min_ticks;
 
-extern SortStruct global_numsortstruct;
+extern TestControlStruct global_numsortstruct;
 extern SortStruct global_strsortstruct;
 extern BitOpStruct global_bitopstruct;
 extern EmFloatStruct global_emfloatstruct;

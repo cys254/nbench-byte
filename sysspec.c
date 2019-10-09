@@ -40,6 +40,7 @@
 #ifdef DOS16
 #include <io.h>
 #include <fcntl.h>
+#include <sys\types.h>
 #include <sys\stat.h>
 #endif
 
@@ -865,6 +866,10 @@ unsigned long TicksToSecs(unsigned long tickamount)
     return((unsigned long)(tickamount/1000L));
 #endif
 
+#ifdef CLOCK_GETTIME
+    return 0;
+#endif
+
 }
 
 /****************************
@@ -893,5 +898,78 @@ double TicksToFracSecs(unsigned long tickamount)
     /* Using 840 nanosecond ticks */
     return((double)tickamount/(double)1000);
 #endif
+#ifdef CLOCK_GETTIME
+    return 0.0;
+#endif
 }
 
+/****************************
+** StartStopWatch
+** Starts a software stopwatch.
+** Store start time in StopWatchStruct passed in
+*/
+void StartStopWatch(StopWatchStruct *stopwatch)
+{
+#if defined(MACTIMEMGR)
+    /*
+     ** For Mac code warrior, use timer.
+     */
+    InsTime((QElemPtr)&myTMTask);
+    PrimeTime((QElemPtr)&myTMTask,-MacHSTdelay);
+#elif defined(WIN31TIMER)
+    /*
+     ** Win 3.x timer returns a DWORD, which we coax into a long.
+     */
+    _Call16(lpfn,"p",&stopwatch->win31tinfo);
+    stopwatch->ticks = (unsigned long)win31tinfo.dwmsSinceStart;
+#elif defined(CLOCK_GETTIME)
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &stopwatch->cputime);
+    clock_gettime(CLOCK_MONOTONIC, &stopwatch->realtime);
+#else
+    stopwatch->ticks = (unsigned long)clock();
+#endif
+}
+
+/****************************
+** StopStopWatch
+** Stops the software stopwatch.
+** Store accumated cpu/real time in seconds in StopWatchStruct passed in
+*/
+void StopStopWatch(StopWatchStruct *stopwatch)
+{
+#if defined(MACTIMEMGR)
+    /*
+     ** For Mac code warrior...ignore startticks.  Return val. in microseconds
+     */
+    RmvTime((QElemPtr)&stopwatch->myTMTask);
+    stopwatch->cpusecs += (double)(MacHSTdelay+myTMTask.tmCount-MacHSTohead)*1e-6;
+    stopwatch->realsecs = stopwatch->cpusecs;
+#elif defined(WIN31TIMER)
+    _Call16(lpfn,"p",&win31tinfo);
+    stopwatch->cpusecs += (double)((unsigned long)win31tinfo.dwmsSinceStart-stopwatch->ticks)*1e-3;
+    stopwatch->realsecs = stopwatch->cpusecs;
+#elif defined(CLOCK_GETTIME)
+    struct timespec cputime, realtime;
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &cputime);
+    clock_gettime(CLOCK_MONOTONIC, &realtime);
+    stopwatch->cpusecs  += (double)(cputime.tv_sec  - stopwatch->cputime.tv_sec)  + (double)(cputime.tv_nsec  - stopwatch->cputime.tv_nsec)*1e-9;
+    stopwatch->realsecs += (double)(realtime.tv_sec - stopwatch->realtime.tv_sec) + (double)(realtime.tv_nsec - stopwatch->realtime.tv_nsec)*1e-9;
+#elif defined(CLOCKWCT)
+    stopwatch->cpusecs += (double)((unsigned long)clock() - stopwatch->ticks)/(double)CLK_TCK;
+    stopwatch->realsecs = stopwatch->cpusecs;
+#elif defined(CLOCKWCPS)
+    stopwatch->cpusecs += (double)((unsigned long)clock() - stopwatch->ticks)/(double)CLOCKS_PER_SEC;
+    stopwatch->realsecs = stopwatch->cpusecs;
+#endif
+}
+
+/****************************
+** ResetStopWatch
+** Reset the software stopwatch.
+** set accumated cpu/real time to zero
+*/
+void ResetStopWatch(StopWatchStruct *stopwatch)
+{
+    stopwatch->cpusecs = 0.0;
+    stopwatch->realsecs = 0.0;
+}

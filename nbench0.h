@@ -171,7 +171,7 @@ char *paramnames[]= {
         "EMFLOOPS",
         "EMFMINSECONDS",
         "DOFOUR",
-        "FOURSIZE",
+        "FOURASIZE",
         "FOURMINSECONDS",
         "DOASSIGN",
         "ASSIGNARRAYS",
