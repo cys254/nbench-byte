@@ -571,7 +571,7 @@ extern TestControlStruct global_strsortstruct;
 extern TestControlStruct global_bitopstruct;
 extern TestControlStruct global_emfloatstruct;
 extern TestControlStruct global_fourierstruct;
-extern AssignStruct global_assignstruct;
+extern TestControlStruct global_assignstruct;
 extern IDEAStruct global_ideastruct;
 extern HuffStruct global_huffstruct;
 extern NNetStruct global_nnetstruct;

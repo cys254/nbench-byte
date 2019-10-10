@@ -148,7 +148,4 @@ static int InternalFPFToString(char *dest,
 /*
 ** EXTERNALS
 */
-extern ulong StartStopwatch();
-extern ulong StopStopwatch(ulong elapsed);
-/* extern long randwc(long num); */
 extern int32 randwc(int32 num);

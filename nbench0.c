@@ -83,7 +83,7 @@ TestControlStruct global_strsortstruct;       /* For string sort */
 TestControlStruct global_bitopstruct;         /* For bitfield operations */
 TestControlStruct global_emfloatstruct;       /* For emul. float. point */
 TestControlStruct global_fourierstruct;       /* For fourier test */
-AssignStruct global_assignstruct;       /* For assignment algorithm */
+TestControlStruct global_assignstruct;        /* For assignment algorithm */
 IDEAStruct global_ideastruct;           /* For IDEA encryption */
 HuffStruct global_huffstruct;           /* For Huffman compression */
 NNetStruct global_nnetstruct;           /* For Neural Net */
@@ -1054,7 +1054,7 @@ static double getscore(int fid)
         case TF_FFPU:
             return(global_fourierstruct.realrate);
         case TF_ASSIGN:
-            return(global_assignstruct.iterspersec);
+            return(global_assignstruct.realrate);
         case TF_IDEA:
             return(global_ideastruct.iterspersec);
         case TF_HUFF:
@@ -1139,7 +1139,7 @@ static void show_stats (int bid)
             break;
 
         case TF_ASSIGN:
-            sprintf(buffer,"  Number of arrays: %lu\n",
+            sprintf(buffer,"  Number of arrays: %u\n",
                     global_assignstruct.numarrays);
             output_string(buffer);
             break;

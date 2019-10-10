@@ -76,8 +76,10 @@ typedef struct {
 ** PROTOTYPES
 */
 void DoAssign(void);
-static ulong DoAssignIteration(farlong *arraybase,
-		ulong numarrays);
+void DoAssignAdjust(TestControlStruct *locassignstruct);
+void* AssignFunc(void *data);
+static void DoAssignIteration(farlong *arraybase,
+		ulong numarrays,StopWatchStruct *stopwatch);
 static void LoadAssignArrayWithRand(farlong *arraybase,
 		ulong numarrays);
 static void LoadAssign(farlong arraybase[][ASSIGNCOLS]);
@@ -111,12 +113,7 @@ static void second_assignments(long tableau[][ASSIGNCOLS],
 */
 void DoAssign(void)
 {
-    AssignStruct *locassignstruct;  /* Local structure ptr */
-    farlong *arraybase;
-    char *errorcontext;
-    int systemerror;
-    ulong accumtime;
-    double iterations;
+    TestControlStruct *locassignstruct;  /* Local structure ptr */
 
     /*
      ** Link to global structure
@@ -126,13 +123,34 @@ void DoAssign(void)
     /*
      ** Set the error context string.
      */
-    errorcontext="CPU:Assignment";
+    locassignstruct->errorcontext="CPU:Assignment";
 
+    /*
+     ** See if we need to do self adjustment code.
+     */
+    DoAssignAdjust(locassignstruct);
+
+    /*
+     ** All's well if we get here.  Do the tests.
+     */
+    run_bench_with_concurrency(locassignstruct, AssignFunc);
+}
+
+/*******************
+** DoAssignAdjust **
+********************
+** Perform self adjust
+*/
+void DoAssignAdjust(TestControlStruct *locassignstruct)
+{
     /*
      ** See if we need to do self adjustment code.
      */
     if(locassignstruct->adjust==0)
     {
+        farlong *arraybase;
+        int systemerror;
+        StopWatchStruct stopwatch;             /* Stop watch to time the test */
         /*
          ** Self-adjustment code.  The system begins by working on 1
          ** array.  If it does that in no time, then two arrays
@@ -149,7 +167,8 @@ void DoAssign(void)
                     ASSIGNROWS*ASSIGNCOLS*locassignstruct->numarrays,
                     &systemerror);
             if(systemerror)
-            {       ReportError(errorcontext,systemerror);
+            {
+                ReportError(locassignstruct->errorcontext,systemerror);
                 FreeMemory((farvoid *)arraybase,
                         &systemerror);
                 ErrorExit();
@@ -161,40 +180,78 @@ void DoAssign(void)
              ** minimum, then allocate for more arrays and
              ** try again.
              */
-            if(DoAssignIteration(arraybase,
-                        locassignstruct->numarrays)>global_min_ticks)
-                break;          /* We're ok...exit */
+            ResetStopWatch(&stopwatch);
+            DoAssignIteration(arraybase,
+                        locassignstruct->numarrays,&stopwatch);
 
             FreeMemory((farvoid *)arraybase, &systemerror);
+
+            if(stopwatch.realsecs>0.001)
+                break;          /* We're ok...exit */
+
             locassignstruct->numarrays++;
         }
+        /*
+         ** Be sure to show that we don't have to rerun adjustment code.
+         */
+        locassignstruct->adjust=1;
     }
-    else
-    {       /*
-             ** Allocate space for arrays
-             */
-        arraybase=(farlong *)AllocateMemory(sizeof(long)*
+}
+
+/***************
+** AssignFunc **
+****************
+** Perform an assignment algorithm.
+** The algorithm was adapted from the step by step guide found
+** in "Quantitative Decision Making for Business" (Gordon,
+**  Pressman, and Cohn; Prentice-Hall)
+**
+**
+** NOTES:
+** 1. Even though the algorithm distinguishes between
+**    ASSIGNROWS and ASSIGNCOLS, as though the two might
+**    be different, it does presume a square matrix.
+**    I.E., ASSIGNROWS and ASSIGNCOLS must be the same.
+**    This makes for some algorithmically-correct but
+**    probably non-optimal constructs.
+**
+*/
+void* AssignFunc(void *data)
+{
+    TestThreadData *testdata;              /* test data passed from thread func */
+    TestControlStruct *locassignstruct;    /* Local pointer to global struct */
+    StopWatchStruct stopwatch;             /* Stop watch to time the test */
+    farlong *arraybase;     /* Base pointers of array */
+    int systemerror;        /* For holding error codes */
+
+    testdata = (TestThreadData *)data;
+    locassignstruct = testdata->control;
+
+    /*
+     ** Allocate space for arrays
+     */
+    arraybase=(farlong *)AllocateMemory(sizeof(long)*
                 ASSIGNROWS*ASSIGNCOLS*locassignstruct->numarrays,
                 &systemerror);
-        if(systemerror)
-        {       ReportError(errorcontext,systemerror);
-            FreeMemory((farvoid *)arraybase,
+    if(systemerror)
+    {
+        ReportError(locassignstruct->errorcontext,systemerror);
+        FreeMemory((farvoid *)arraybase,
                     &systemerror);
-            ErrorExit();
-        }
+        ErrorExit();
     }
 
     /*
      ** All's well if we get here.  Do the tests.
      */
-    accumtime=0L;
-    iterations=(double)0.0;
+    testdata->result.iterations=(double)0.0;
+    ResetStopWatch(&stopwatch);
 
     do {
-        accumtime+=DoAssignIteration(arraybase,
-                locassignstruct->numarrays);
-        iterations+=(double)1.0;
-    } while(TicksToSecs(accumtime)<locassignstruct->request_secs);
+        DoAssignIteration(arraybase,
+                locassignstruct->numarrays,&stopwatch);
+        testdata->result.iterations+=(double)1.0;
+    } while(stopwatch.realsecs<locassignstruct->request_secs);
 
     /*
      ** Clean up, calculate results, and go home.  Be sure to
@@ -202,15 +259,11 @@ void DoAssign(void)
      */
     FreeMemory((farvoid *)arraybase,&systemerror);
 
-    locassignstruct->iterspersec=iterations *
-        (double)locassignstruct->numarrays / TicksToFracSecs(accumtime);
-
-    if(locassignstruct->adjust==0)
-        locassignstruct->adjust=1;
-
-    return;
-
+    testdata->result.cpusecs = stopwatch.cpusecs;
+    testdata->result.realsecs = stopwatch.realsecs;
+    return 0;
 }
+
 
 /**********************
 ** DoAssignIteration **
@@ -218,11 +271,10 @@ void DoAssign(void)
 ** This routine executes one iteration of the assignment test.
 ** It returns the number of ticks elapsed in the iteration.
 */
-static ulong DoAssignIteration(farlong *arraybase,
-    ulong numarrays)
+static void DoAssignIteration(farlong *arraybase,
+    ulong numarrays, StopWatchStruct *stopwatch)
 {
     longptr abase;                  /* local pointer */
-    ulong elapsed;          /* Elapsed ticks */
     ulong i;
 
     /*
@@ -238,7 +290,7 @@ static ulong DoAssignIteration(farlong *arraybase,
     /*
      ** Start the stopwatch
      */
-    elapsed=StartStopwatch();
+    StartStopWatch(stopwatch);
 
     /*
      ** Execute assignment algorithms
@@ -253,7 +305,7 @@ static ulong DoAssignIteration(farlong *arraybase,
     /*
      ** Get elapsed time
      */
-    return(StopStopwatch(elapsed));
+    StopStopWatch(stopwatch);
 }
 
 /****************************
