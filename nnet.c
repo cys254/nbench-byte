@@ -122,6 +122,12 @@ typedef struct {
     int learned;            /* flag--if TRUE, network has learned all patterns */
 } NNetData;
 
+#ifdef DOS16
+typedef NNetData huge * farnnetdataptr;
+#else
+typedef NNetData * farnnetdataptr;
+#endif
+
 /*
 ** PROTOTYPES
 */
@@ -209,7 +215,7 @@ void DoNNET(void)
             ResetStopWatch(&stopwatch);
             DoNNetIteration(&nnetdata, locnnetstruct->loops, &stopwatch);
              
-            if(stopwatch.realsecs>global_min_ticks) break;
+            if(stopwatch.realsecs>global_min_itersec) break;
         }
     }
 

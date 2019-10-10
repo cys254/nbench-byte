@@ -166,7 +166,7 @@ void DoStringSortAdjust(TestControlStruct *strsortstruct)
 
             FreeMemory((farvoid *)arraybase,&systemerror);
 
-            if(stopwatch.realsecs > 0.001)
+            if(stopwatch.realsecs > global_min_itersec)
                 break;          /* We're ok...exit */
 
             strsortstruct->numarrays+=1;

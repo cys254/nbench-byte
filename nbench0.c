@@ -65,7 +65,7 @@ int tests_to_do[NUMTESTS];
 /*
 ** Global parameters.
 */
-ulong global_min_ticks;         /* Minimum ticks */
+float global_min_itersec;       /* Minimum seconds per iteration */
 ulong global_min_seconds;       /* Minimum seconds tests run */
 int global_allstats;            /* Statistics dump flag */
 int global_concurrency = 1;     /* Number of concurrent test threads */
@@ -180,7 +180,7 @@ int main(int argc, char *argv[])
     /*
      ** Set global parameters to default.
      */
-    global_min_ticks=MINIMUM_TICKS;
+    global_min_itersec=MINIMUM_ITERATION_SECONDS;
     global_min_seconds=MINIMUM_SECONDS;
     global_allstats=0;
     global_custrun=0;
@@ -543,8 +543,8 @@ static void read_comfile(FILE *cfile)
          */
         switch(i)
         {
-            case PF_GMTICKS:        /* GLOBALMINTICKS */
-                global_min_ticks=(ulong)atol(eptr);
+            case PF_GMITERSEC:        /* GLOBALMINITERSEC */
+                global_min_itersec=(float)atof(eptr);
                 break;
 
             case PF_MINSECONDS:     /* MINSECONDS */

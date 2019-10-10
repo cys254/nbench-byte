@@ -162,18 +162,18 @@
 #define ERROR_FILESEEK 14
 
 /*
-** MINIMUM_TICKS
+** MINIMUM_ITERATION_SECONDS
 **
-** This sets the default number of minimum ticks.
+** This sets the default value of minimum iteration time.
 ** It can, of course, be overridden by the input
 ** command file.
 ** This ultimately gets loaded into the variable
-** global_min_ticks, which specifies the minimum
-** number of ticks that must take place between
+** global_min_itersec, which specifies the minimum
+** time in seconds that must take place between
 ** a StartStopwatch() and StopStopwatch() call.
 ** The idea is to reduce error buildup.
 */
-#define MINIMUM_TICKS 60
+#define MINIMUM_ITERATION_SECONDS 0.01
 
 /*
 ** MINIMUM_SECONDS
@@ -557,7 +557,7 @@ typedef struct {
 /*
 ** EXTERNALS
 */
-extern ulong global_min_ticks;
+extern float global_min_itersec;
 extern int global_concurrency;        /* Number of concurrent test threads */
 
 extern TestControlStruct global_numsortstruct;

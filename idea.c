@@ -250,7 +250,7 @@ void DoIDEAAdjust(TestControlStruct *locideastruct)
                         locideastruct->arraysize,
                         locideastruct->loops,
                         ideadata.Z,ideadata.DK,&stopwatch);
-            if(stopwatch.realsecs>0.001) break;
+            if(stopwatch.realsecs>global_min_itersec) break;
         }
 
         /*

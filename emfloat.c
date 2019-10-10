@@ -144,7 +144,7 @@ void DoEmFloatAdjust(TestControlStruct *locemfloatstruct)
             DoEmFloatIteration(abase,bbase,cbase,
                 locemfloatstruct->arraysize,
                 loops, &stopwatch);
-            if(stopwatch.realsecs>0.001)
+            if(stopwatch.realsecs>global_min_itersec)
             {
                 locemfloatstruct->loops=loops;
                 break;

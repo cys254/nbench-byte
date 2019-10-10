@@ -236,7 +236,7 @@ void DoHuffmanAdjust(TestControlStruct *lochuffstruct)
                         lochuffstruct->loops,
                         huffdata.hufftree,
                         &stopwatch);
-            if(stopwatch.realsecs>0.001) break;
+            if(stopwatch.realsecs>global_min_itersec) break;
         }
         HuffDataCleanup(&huffdata);
         lochuffstruct->adjust=1;

@@ -154,7 +154,7 @@ void DoFourierAdjust(TestControlStruct *locfourierstruct)
             FreeMemory((farvoid *)abase,&systemerror);
             FreeMemory((farvoid *)bbase,&systemerror);
 
-            if(stopwatch.realsecs>0.001)
+            if(stopwatch.realsecs>global_min_itersec)
                 break;          /* We're ok...exit */
 
             /*

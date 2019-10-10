@@ -287,7 +287,7 @@ void DoLUAdjust(TestControlStruct *loclustruct)
             LUDataSetup2(loclustruct, &ludata, i+1);
 
             DoLUIteration(ludata.a,ludata.b,ludata.abase,ludata.bbase,i,ludata.LUtempvv);
-            if(stopwatch.realsecs > 0.001)
+            if(stopwatch.realsecs > global_min_itersec)
             {
                 loclustruct->numarrays=i;
                 break;

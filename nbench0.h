@@ -34,7 +34,7 @@ char *compilerversion="Have a nice day";
 
 /*  Parameter flags.  Must coincide with parameter names array
 ** which appears below. */
-#define PF_GMTICKS 0            /* GLOBALMINTICKS */
+#define PF_GMITERSEC 0          /* GLOBALMINITERSEC */
 #define PF_MINSECONDS 1         /* MINSECONDS */
 #define PF_ALLSTATS 2           /* ALLSTATS */
 #define PF_OUTFILE 3            /* OUTFILE */
@@ -149,7 +149,7 @@ double lx_bindex[] = {
 
 /* Parameter names */
 char *paramnames[]= {
-        "GLOBALMINTICKS",
+        "GLOBALMINITERSEC",
         "MINSECONDS",
         "ALLSTATS",
         "OUTFILE",

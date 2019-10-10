@@ -174,7 +174,7 @@ void DoBitopsAdjust(TestControlStruct *locbitopstruct)
 
             FreeMemory((farvoid *)bitoparraybase,&systemerror);
 
-            if (stopwatch.realsecs>0.001) break;      /* We're ok...exit */
+            if (stopwatch.realsecs>global_min_itersec) break;      /* We're ok...exit */
 
             locbitopstruct->bitoparraysize+=100L;
         }
