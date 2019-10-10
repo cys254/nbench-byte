@@ -72,22 +72,26 @@ typedef struct {
 	int right;              /* Right pointer = 1 */
 } huff_node;
 
-/*
-** GLOBALS
-*/
-static huff_node *hufftree;             /* The huffman tree */
-static long plaintextlen;               /* Length of plaintext */
+typedef struct {
+    HuffStruct *lochuffstruct;      /* Loc pointer to global data */
+    farchar *comparray;
+    farchar *decomparray;
+    farchar *plaintext;
+    huff_node *hufftree;             /* The huffman tree */
+} HuffData;
 
 /*
 ** PROTOTYPES
 */
 void DoHuffman();
+void DoHuffmanAdjust(TestControlStruct *lochuffstruct);
+void *HuffmanFunc(void *data);
 static void create_text_line(farchar *dt,long nchars);
 static void create_text_block(farchar *tb, ulong tblen,
 		ushort maxlinlen);
-static ulong DoHuffIteration(farchar *plaintext,
+static void DoHuffIteration(farchar *plaintext,
 	farchar *comparray, farchar *decomparray,
-	ulong arraysize, ulong nloops, huff_node *hufftree);
+	ulong arraysize, ulong nloops, huff_node *hufftree, StopWatchStruct *stopwatch);
 static void SetCompBit(u8 *comparray, u32 bitoffset, char bitchar);
 static int GetCompBit(u8 *comparray, u32 bitoffset);
 
@@ -102,14 +106,7 @@ static int GetCompBit(u8 *comparray, u32 bitoffset);
 */
 void DoHuffman(void)
 {
-    HuffStruct *lochuffstruct;      /* Loc pointer to global data */
-    char *errorcontext;
-    int systemerror;
-    ulong accumtime;
-    double iterations;
-    farchar *comparray;
-    farchar *decomparray;
-    farchar *plaintext;
+    TestControlStruct *lochuffstruct;      /* Loc pointer to global data */
 
     /*
      ** Link to global data
@@ -119,8 +116,28 @@ void DoHuffman(void)
     /*
      ** Set error context.
      */
-    errorcontext="CPU:Huffman";
+    lochuffstruct->errorcontext="CPU:Huffman";
 
+    /*
+     ** See if we have to perform self-adjustment code
+     */
+    DoHuffmanAdjust(lochuffstruct);
+
+    /*
+     ** Run the benchmark
+     */
+    run_bench_with_concurrency(lochuffstruct, HuffmanFunc);
+}
+
+
+/******************
+** HuffDataSetup **
+*******************
+** Setup data for huffman test
+*/
+void HuffDataSetup(TestControlStruct *lochuffstruct, HuffData *huffdata)
+{
+    int systemerror;
     /*
      ** Allocate memory for the plaintext and the compressed text.
      ** We'll be really pessimistic here, and allocate equal amounts
@@ -132,32 +149,36 @@ void DoHuffman(void)
      ** than 512 bytes.  This is actually a super-conservative
      ** estimate...but, who cares?)
      */
-    plaintext=(farchar *)AllocateMemory(lochuffstruct->arraysize,&systemerror);
+    huffdata->plaintext=(farchar *)AllocateMemory(lochuffstruct->arraysize,&systemerror);
     if(systemerror)
-    {       ReportError(errorcontext,systemerror);
+    {
+        ReportError(lochuffstruct->errorcontext,systemerror);
         ErrorExit();
     }
-    comparray=(farchar *)AllocateMemory(lochuffstruct->arraysize,&systemerror);
+    huffdata->comparray=(farchar *)AllocateMemory(lochuffstruct->arraysize,&systemerror);
     if(systemerror)
-    {       ReportError(errorcontext,systemerror);
-        FreeMemory(plaintext,&systemerror);
+    {
+        ReportError(lochuffstruct->errorcontext,systemerror);
+        FreeMemory(huffdata->plaintext,&systemerror);
         ErrorExit();
     }
-    decomparray=(farchar *)AllocateMemory(lochuffstruct->arraysize,&systemerror);
+    huffdata->decomparray=(farchar *)AllocateMemory(lochuffstruct->arraysize,&systemerror);
     if(systemerror)
-    {       ReportError(errorcontext,systemerror);
-        FreeMemory(plaintext,&systemerror);
-        FreeMemory(comparray,&systemerror);
+    {
+        ReportError(lochuffstruct->errorcontext,systemerror);
+        FreeMemory(huffdata->plaintext,&systemerror);
+        FreeMemory(huffdata->comparray,&systemerror);
         ErrorExit();
     }
 
-    hufftree=(huff_node *)AllocateMemory(sizeof(huff_node) * 512,
+    huffdata->hufftree=(huff_node *)AllocateMemory(sizeof(huff_node) * 512,
             &systemerror);
     if(systemerror)
-    {       ReportError(errorcontext,systemerror);
-        FreeMemory(plaintext,&systemerror);
-        FreeMemory(comparray,&systemerror);
-        FreeMemory(decomparray,&systemerror);
+    {
+        ReportError(lochuffstruct->errorcontext,systemerror);
+        FreeMemory(huffdata->plaintext,&systemerror);
+        FreeMemory(huffdata->comparray,&systemerror);
+        FreeMemory(huffdata->decomparray,&systemerror);
         ErrorExit();
     }
 
@@ -171,15 +192,39 @@ void DoHuffman(void)
      ** added by Uwe F. Mayer
      */
     randnum((int32)13);
-    create_text_block(plaintext,lochuffstruct->arraysize-1,(ushort)500);
-    plaintext[lochuffstruct->arraysize-1L]='\0';
-    plaintextlen=lochuffstruct->arraysize;
+    create_text_block(huffdata->plaintext,lochuffstruct->arraysize-1,(ushort)500);
+    huffdata->plaintext[lochuffstruct->arraysize-1L]='\0';
+}
 
+/********************
+** HuffDataCleanup **
+*********************
+** Cleanup data for huffman test
+*/
+void HuffDataCleanup(HuffData *huffdata)
+{
+    int systemerror;
+    FreeMemory((farvoid *)huffdata->plaintext,&systemerror);
+    FreeMemory((farvoid *)huffdata->comparray,&systemerror);
+    FreeMemory((farvoid *)huffdata->decomparray,&systemerror);
+    FreeMemory((farvoid *)huffdata->hufftree,&systemerror);
+}
+
+/********************
+** DoHuffmanAdjust **
+*********************
+** Do self-adjust
+*/
+void DoHuffmanAdjust(TestControlStruct *lochuffstruct)
+{
     /*
      ** See if we need to perform self adjustment loop.
      */
     if(lochuffstruct->adjust==0)
     {
+        HuffData huffdata;
+        StopWatchStruct stopwatch;      /* Stop watch to time the test */
+        HuffDataSetup(lochuffstruct, &huffdata);
         /*
          ** Do self-adjustment.  This involves initializing the
          ** # of loops and increasing the loop count until we
@@ -187,44 +232,66 @@ void DoHuffman(void)
          */
         for(lochuffstruct->loops=100L;
                 lochuffstruct->loops<MAXHUFFLOOPS;
-                lochuffstruct->loops+=10L)
-            if(DoHuffIteration(plaintext,
-                        comparray,
-                        decomparray,
+                lochuffstruct->loops+=10L) {
+            ResetStopWatch(&stopwatch);
+            DoHuffIteration(huffdata.plaintext,
+                        huffdata.comparray,
+                        huffdata.decomparray,
                         lochuffstruct->arraysize,
                         lochuffstruct->loops,
-                        hufftree)>global_min_ticks) break;
+                        huffdata.hufftree,
+                        &stopwatch);
+            if(stopwatch.realsecs>0.001) break;
+        }
+        HuffDataCleanup(&huffdata);
+        lochuffstruct->adjust=1;
     }
+}
+
+/****************
+** HuffmanFunc **
+*****************
+** Execute a huffman compression on a block of plaintext.
+** Note that (as with IDEA encryption) an iteration of the
+** Huffman test includes a compression AND a decompression.
+** Also, the compression cycle includes building the
+** Huffman tree.
+*/
+void *HuffmanFunc(void *data)
+{
+    TestThreadData *testdata;          /* test data passed from thread func */
+    TestControlStruct *lochuffstruct;  /* Loc pointer to global data */
+    HuffData huffdata;                 /* huffman test data */
+    StopWatchStruct stopwatch;         /* Stop watch to time the test */
+
+    testdata = (TestThreadData *)data;
+    lochuffstruct = testdata->control;
+
+    HuffDataSetup(lochuffstruct, &huffdata);
 
     /*
      ** All's well if we get here.  Do the test.
      */
-    accumtime=0L;
-    iterations=(double)0.0;
+    testdata->result.iterations = 0.0;
+    ResetStopWatch(&stopwatch);
 
     do {
-        accumtime+=DoHuffIteration(plaintext,
-                comparray,
-                decomparray,
+        DoHuffIteration(huffdata.plaintext,
+                huffdata.comparray,
+                huffdata.decomparray,
                 lochuffstruct->arraysize,
                 lochuffstruct->loops,
-                hufftree);
-        iterations+=(double)lochuffstruct->loops;
-    } while(TicksToSecs(accumtime)<lochuffstruct->request_secs);
+                huffdata.hufftree,
+                &stopwatch);
+        testdata->result.iterations+=(double)lochuffstruct->loops;
+    } while(stopwatch.realsecs<lochuffstruct->request_secs);
 
-    /*
-     ** Clean up, calculate results, and go home.  Be sure to
-     ** show that we don't have to rerun adjustment code.
-     */
-    FreeMemory((farvoid *)plaintext,&systemerror);
-    FreeMemory((farvoid *)comparray,&systemerror);
-    FreeMemory((farvoid *)decomparray,&systemerror);
-    FreeMemory((farvoid *)hufftree,&systemerror);
-    lochuffstruct->iterspersec=iterations / TicksToFracSecs(accumtime);
+    HuffDataCleanup(&huffdata);
 
-    if(lochuffstruct->adjust==0)
-        lochuffstruct->adjust=1;
+    testdata->result.cpusecs = stopwatch.cpusecs;
+    testdata->result.realsecs = stopwatch.realsecs;
 
+    return 0;
 }
 
 /*********************
@@ -331,12 +398,13 @@ static void create_text_block(farchar *tb,
 **  (b) Compresses the text
 **  (c) Decompresses the text and verifies correct decompression
 */
-static ulong DoHuffIteration(farchar *plaintext,
+static void DoHuffIteration(farchar *plaintext,
     farchar *comparray,
     farchar *decomparray,
     ulong arraysize,
     ulong nloops,
-    huff_node *hufftree)
+    huff_node *hufftree,
+    StopWatchStruct *stopwatch)
 {
     int i;                          /* Index */
     long j;                         /* Bigger index */
@@ -349,7 +417,6 @@ static ulong DoHuffIteration(farchar *plaintext,
     long bitstringlen;              /* Length of bitstring */
     int c;                          /* Character from plaintext */
     char bitstring[30];             /* Holds bitstring */
-    ulong elapsed;                  /* For stopwatch */
 #ifdef DEBUG
     int status=0;
 #endif
@@ -357,7 +424,7 @@ static ulong DoHuffIteration(farchar *plaintext,
     /*
      ** Start the stopwatch
      */
-    elapsed=StartStopwatch();
+    StartStopWatch(stopwatch);
 
     /*
      ** Do everything for nloops
@@ -525,7 +592,7 @@ static ulong DoHuffIteration(farchar *plaintext,
 #ifdef DEBUG
     if (status==0) printf("Huffman: OK\n");
 #endif
-    return(StopStopwatch(elapsed));
+    StopStopWatch(stopwatch);
 }
 
 /***************

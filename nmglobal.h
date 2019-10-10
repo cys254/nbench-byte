@@ -573,7 +573,7 @@ extern TestControlStruct global_emfloatstruct;
 extern TestControlStruct global_fourierstruct;
 extern TestControlStruct global_assignstruct;
 extern TestControlStruct global_ideastruct;
-extern HuffStruct global_huffstruct;
+extern TestControlStruct global_huffstruct;
 extern NNetStruct global_nnetstruct;
 extern LUStruct global_lustruct;
 

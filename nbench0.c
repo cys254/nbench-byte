@@ -85,7 +85,7 @@ TestControlStruct global_emfloatstruct;       /* For emul. float. point */
 TestControlStruct global_fourierstruct;       /* For fourier test */
 TestControlStruct global_assignstruct;        /* For assignment algorithm */
 TestControlStruct global_ideastruct;           /* For IDEA encryption */
-HuffStruct global_huffstruct;           /* For Huffman compression */
+TestControlStruct global_huffstruct;           /* For Huffman compression */
 NNetStruct global_nnetstruct;           /* For Neural Net */
 LUStruct global_lustruct;               /* For LU decomposition */
 
@@ -1058,7 +1058,7 @@ static double getscore(int fid)
         case TF_IDEA:
             return(global_ideastruct.realrate);
         case TF_HUFF:
-            return(global_huffstruct.iterspersec);
+            return(global_huffstruct.realrate);
         case TF_NNET:
             return(global_nnetstruct.iterspersec);
         case TF_LU:
