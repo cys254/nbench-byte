@@ -81,7 +81,7 @@ int write_to_file;              /* Write output to file */
 TestControlStruct global_numsortstruct;       /* For numeric sort */
 TestControlStruct global_strsortstruct;       /* For string sort */
 TestControlStruct global_bitopstruct;         /* For bitfield operations */
-EmFloatStruct global_emfloatstruct;     /* For emul. float. point */
+TestControlStruct global_emfloatstruct;       /* For emul. float. point */
 FourierStruct global_fourierstruct;     /* For fourier test */
 AssignStruct global_assignstruct;       /* For assignment algorithm */
 IDEAStruct global_ideastruct;           /* For IDEA encryption */
@@ -1050,7 +1050,7 @@ static double getscore(int fid)
         case TF_BITOP:
             return(global_bitopstruct.realrate);
         case TF_FPEMU:
-            return(global_emfloatstruct.emflops);
+            return(global_emfloatstruct.realrate);
         case TF_FFPU:
             return(global_fourierstruct.fflops);
         case TF_ASSIGN:

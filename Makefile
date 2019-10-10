@@ -99,10 +99,12 @@ ifeq ($(UNAME), Darwin)
     CC=cc
     CFLAGS = -Wall -O3
     DEFINES= -DOSX $(NO_UNAME)
+    LIBS= -lm
 else
     CC=gcc
     CFLAGS = -s -static -Wall -O3
     DEFINES= -DLINUX $(NO_UNAME)
+    LIBS= -lm -lpthread
 endif
 
 
@@ -191,7 +193,7 @@ nbench: emfloat.o misc.o nbench0.o sysspec.o hardware.o\
 	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS) $(LINKFLAGS)\
 		emfloat.o misc.o nbench0.o sysspec.o hardware.o\
 		numsort.o strsort.o bitfield.o fourier.o assign.o idea.o huffman.o nnet.o lu.o \
-		-o nbench -lm
+		-o nbench $(LIBS)
 
 ##########################################################################
 

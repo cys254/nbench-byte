@@ -480,7 +480,7 @@ static int ludcmp(double a[][LUARRAYCOLS],
      ** Crout's algorithm...loop over columns.
      */
     for(j=0;j<n;j++)
-    {       if(j!=0)
+    {
         for(i=0;i<j;i++)
         {       sum=a[i][j];
             if(i!=0)

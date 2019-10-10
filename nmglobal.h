@@ -28,6 +28,9 @@
 /* is this a 64 bit architecture? If so, this will define LONG64 */
 #include "pointer.h"
 
+/* to avoid compiling issue in linux */
+#include <stdlib.h>
+
 /*
 ** SYSTEM DEFINES
 */
@@ -566,7 +569,7 @@ extern int global_concurrency;        /* Number of concurrent test threads */
 extern TestControlStruct global_numsortstruct;
 extern TestControlStruct global_strsortstruct;
 extern TestControlStruct global_bitopstruct;
-extern EmFloatStruct global_emfloatstruct;
+extern TestControlStruct global_emfloatstruct;
 extern FourierStruct global_fourierstruct;
 extern AssignStruct global_assignstruct;
 extern IDEAStruct global_ideastruct;

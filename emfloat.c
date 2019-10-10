@@ -29,10 +29,14 @@
 #include "nmglobal.h"
 #include "emfloat.h"
 #include "sysspec.h"
+#include "misc.h"
 
 /*****************************
 ** FLOATING-POINT EMULATION **
 *****************************/
+
+void DoEmFloatAdjust(TestControlStruct *locemfloatstruct);
+static void *EmFloatFunc(void *data);
 
 /**************
 ** DoEmFloat **
@@ -42,16 +46,7 @@
 */
 void DoEmFloat(void)
 {
-    EmFloatStruct *locemfloatstruct;        /* Local structure */
-    InternalFPF *abase;             /* Base of A array */
-    InternalFPF *bbase;             /* Base of B array */
-    InternalFPF *cbase;             /* Base of C array */
-    ulong accumtime;                /* Accumulated time in ticks */
-    double iterations;              /* # of iterations */
-    ulong tickcount;                /* # of ticks */
-    char *errorcontext;             /* Error context string pointer */
-    int systemerror;                /* For holding error code */
-    ulong loops;                    /* # of loops */
+    TestControlStruct *locemfloatstruct;        /* Local structure */
 
     /*
      ** Link to global structure
@@ -61,8 +56,7 @@ void DoEmFloat(void)
     /*
      ** Set the error context
      */
-    errorcontext="CPU:Floating Emulation";
-
+    locemfloatstruct->errorcontext="CPU:Floating Emulation";
 
     /*
      ** Test the emulation routines.
@@ -70,17 +64,155 @@ void DoEmFloat(void)
 #ifdef DEBUG
 #endif
 
+    /*
+     ** See if we need to do self-adjusting code.
+     */
+    DoEmFloatAdjust(locemfloatstruct);
+    /*
+     ** All's well if we get here.  Repeatedly perform floating
+     ** tests until the accumulated time is greater than the
+     ** # of seconds requested.
+     ** Each iteration performs arraysize * 3 operations.
+     */
+
+    /*
+     ** Run the benchmark
+     */
+    run_bench_with_concurrency(locemfloatstruct, EmFloatFunc);
+
+#ifdef DEBUG
+    printf("----------------------------------------------------------------------------\n");
+#endif
+    return;
+}
+
+/********************
+** DoEmFloatAdjust **
+*********************
+** Self adjust
+*/
+void DoEmFloatAdjust(TestControlStruct *locemfloatstruct)
+{
+    /*
+     ** See if we need to do self-adjusting code.
+     */
+    if(locemfloatstruct->adjust==0)
+    {
+        InternalFPF *abase;             /* Base of A array */
+        InternalFPF *bbase;             /* Base of B array */
+        InternalFPF *cbase;             /* Base of C array */
+        int systemerror;                /* For holding error code */
+        ulong loops;                    /* # of loops */
+
+        abase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
+                &systemerror);
+        if(systemerror)
+        {
+            ReportError(locemfloatstruct->errorcontext,systemerror);
+            ErrorExit();
+        }
+
+        bbase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
+                &systemerror);
+        if(systemerror)
+        {
+            ReportError(locemfloatstruct->errorcontext,systemerror);
+            FreeMemory((farvoid *)abase,&systemerror);
+            ErrorExit();
+        }
+
+        cbase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
+                &systemerror);
+        if(systemerror)
+        {
+            ReportError(locemfloatstruct->errorcontext,systemerror);
+            FreeMemory((farvoid *)abase,&systemerror);
+            FreeMemory((farvoid *)bbase,&systemerror);
+            ErrorExit();
+        }
+
+        /*
+         ** Set up the arrays
+         */
+        SetupCPUEmFloatArrays(abase,bbase,cbase,locemfloatstruct->arraysize);
+
+        locemfloatstruct->loops=0;
+
+        /*
+         ** Do an iteration of the tests.  If the elapsed time is
+         ** less than minimum, increase the loop count and try
+         ** again.
+         */
+        for(loops=1;loops<CPUEMFLOATLOOPMAX;loops+=loops)
+        {
+            StopWatchStruct stopwatch;
+            ResetStopWatch(&stopwatch);
+            DoEmFloatIteration(abase,bbase,cbase,
+                locemfloatstruct->arraysize,
+                loops, &stopwatch);
+            if(stopwatch.realsecs>0.001)
+            {
+                locemfloatstruct->loops=loops;
+                break;
+            }
+        }
+
+        /*
+         ** Clean up
+         */
+        FreeMemory((farvoid *)abase,&systemerror);
+        FreeMemory((farvoid *)bbase,&systemerror);
+        FreeMemory((farvoid *)cbase,&systemerror);
+
+        /*
+         ** Verify that selft adjustment code worked.
+         */
+        if(locemfloatstruct->loops==0)
+        {
+            printf("CPU:EMFPU -- CMPUEMFLOATLOOPMAX limit hit\n");
+            ErrorExit();
+        }
+
+        /*
+         ** indicate that adjustment is done.
+         */
+        locemfloatstruct->adjust=1;
+    }
+}
+
+/****************
+** EmFloatFunc **
+*****************
+** Perform the floating-point emulation routines portion of the
+** CPU benchmark.
+** It is can be used thread func to run concurrently
+*/
+void *EmFloatFunc(void *data)
+{
+    TestThreadData *testdata;       /* test data passed from thread func */
+    InternalFPF *abase;             /* Base of A array */
+    InternalFPF *bbase;             /* Base of B array */
+    InternalFPF *cbase;             /* Base of C array */
+    StopWatchStruct stopwatch;      /* Stop watch to time the test */
+    int systemerror;                /* For holding error code */
+    TestControlStruct *locemfloatstruct;        /* Local structure */
+
+    testdata = (TestThreadData*)data;
+    locemfloatstruct=testdata->control;
+
     abase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
             &systemerror);
     if(systemerror)
-    {       ReportError(errorcontext,systemerror);
+    {
+        ReportError(locemfloatstruct->errorcontext,systemerror);
         ErrorExit();
     }
 
     bbase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
             &systemerror);
     if(systemerror)
-    {       ReportError(errorcontext,systemerror);
+    {
+        ReportError(locemfloatstruct->errorcontext,systemerror);
         FreeMemory((farvoid *)abase,&systemerror);
         ErrorExit();
     }
@@ -88,7 +220,8 @@ void DoEmFloat(void)
     cbase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
             &systemerror);
     if(systemerror)
-    {       ReportError(errorcontext,systemerror);
+    {
+        ReportError(locemfloatstruct->errorcontext,systemerror);
         FreeMemory((farvoid *)abase,&systemerror);
         FreeMemory((farvoid *)bbase,&systemerror);
         ErrorExit();
@@ -100,54 +233,20 @@ void DoEmFloat(void)
     SetupCPUEmFloatArrays(abase,bbase,cbase,locemfloatstruct->arraysize);
 
     /*
-     ** See if we need to do self-adjusting code.
-     */
-    if(locemfloatstruct->adjust==0)
-    {
-        locemfloatstruct->loops=0;
-
-        /*
-         ** Do an iteration of the tests.  If the elapsed time is
-         ** less than minimum, increase the loop count and try
-         ** again.
-         */
-        for(loops=1;loops<CPUEMFLOATLOOPMAX;loops+=loops)
-        {       tickcount=DoEmFloatIteration(abase,bbase,cbase,
-                locemfloatstruct->arraysize,
-                loops);
-        if(tickcount>global_min_ticks)
-        {       locemfloatstruct->loops=loops;
-            break;
-        }
-        }
-    }
-
-    /*
-     ** Verify that selft adjustment code worked.
-     */
-    if(locemfloatstruct->loops==0)
-    {       printf("CPU:EMFPU -- CMPUEMFLOATLOOPMAX limit hit\n");
-        FreeMemory((farvoid *)abase,&systemerror);
-        FreeMemory((farvoid *)bbase,&systemerror);
-        FreeMemory((farvoid *)cbase,&systemerror);
-        ErrorExit();
-    }
-
-    /*
      ** All's well if we get here.  Repeatedly perform floating
      ** tests until the accumulated time is greater than the
      ** # of seconds requested.
      ** Each iteration performs arraysize * 3 operations.
      */
-    accumtime=0L;
-    iterations=(double)0.0;
-    do {
-        accumtime+=DoEmFloatIteration(abase,bbase,cbase,
-                locemfloatstruct->arraysize,
-                locemfloatstruct->loops);
-        iterations+=(double)1.0;
-    } while(TicksToSecs(accumtime)<locemfloatstruct->request_secs);
+    testdata->result.iterations = 0.0;
+    ResetStopWatch(&stopwatch);
 
+    do {
+        DoEmFloatIteration(abase,bbase,cbase,
+                locemfloatstruct->arraysize,
+                locemfloatstruct->loops,&stopwatch);
+        testdata->result.iterations+=(double)locemfloatstruct->loops;
+    } while(stopwatch.realsecs<locemfloatstruct->request_secs);
 
     /*
      ** Clean up, calculate results, and go home.
@@ -157,15 +256,10 @@ void DoEmFloat(void)
     FreeMemory((farvoid *)bbase,&systemerror);
     FreeMemory((farvoid *)cbase,&systemerror);
 
-    locemfloatstruct->emflops=(iterations*(double)locemfloatstruct->loops)/
-        (double)TicksToFracSecs(accumtime);
-    if(locemfloatstruct->adjust==0)
-        locemfloatstruct->adjust=1;
+    testdata->result.cpusecs = stopwatch.cpusecs;
+    testdata->result.realsecs = stopwatch.realsecs;
 
-#ifdef DEBUG
-    printf("----------------------------------------------------------------------------\n");
-#endif
-    return;
+    return 0;
 }
 
 /*
@@ -227,12 +321,11 @@ void SetupCPUEmFloatArrays(InternalFPF *abase,
 ** benchmark.  Note that "an iteration" can involve multiple
 ** loops through the benchmark.
 */
-ulong DoEmFloatIteration(InternalFPF *abase,
+void DoEmFloatIteration(InternalFPF *abase,
                 InternalFPF *bbase,
                 InternalFPF *cbase,
-                ulong arraysize, ulong loops)
+                ulong arraysize, ulong loops, StopWatchStruct *stopwatch)
 {
-    ulong elapsed;          /* For the stopwatch */
     static uchar jtable[16] = {0,0,0,0,1,1,1,1,2,2,2,2,2,3,3,3};
     ulong i;
 #ifdef DEBUG
@@ -241,7 +334,7 @@ ulong DoEmFloatIteration(InternalFPF *abase,
     /*
      ** Begin timing
      */
-    elapsed=StartStopwatch();
+    StartStopWatch(stopwatch);
 #ifdef DEBUG
     number_of_loops=loops-1; /* the index of the first loop we run */
 #endif
@@ -315,7 +408,7 @@ ulong DoEmFloatIteration(InternalFPF *abase,
         }
 #endif
     }
-    return(StopStopwatch(elapsed));
+    StopStopWatch(stopwatch);
 }
 
 /***********************

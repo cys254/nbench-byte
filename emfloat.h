@@ -112,9 +112,9 @@ typedef struct
 */
 void SetupCPUEmFloatArrays(InternalFPF *abase,
         InternalFPF *bbase, InternalFPF *cbase, ulong arraysize);
-ulong DoEmFloatIteration(InternalFPF *abase,
+void DoEmFloatIteration(InternalFPF *abase,
         InternalFPF *bbase, InternalFPF *cbase,
-        ulong arraysize, ulong loops);
+        ulong arraysize, ulong loops, StopWatchStruct *stopwatch);
 static void SetInternalFPFZero(InternalFPF *dest,
                         uchar sign);
 static void SetInternalFPFInfinity(InternalFPF *dest,
