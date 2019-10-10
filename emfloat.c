@@ -27,8 +27,8 @@
 #include <stdio.h>
 #include <string.h>
 #include "nmglobal.h"
-#include "emfloat.h"
 #include "sysspec.h"
+#include "emfloat.h"
 #include "misc.h"
 
 /*****************************
