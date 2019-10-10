@@ -98,15 +98,12 @@ static void NumSift(farlong *array,
 void DoNumSort(void)
 {
     TestControlStruct *numsortstruct;      /* Local pointer to global struct */
-    char *errorcontext;     /* Error context string pointer */
 #ifdef LOGICAL_CPUS
     TestThreadData  testdatas[LOGICAL_CPUS];        /* Test data to pass to thread func */
     pthread_t threads[LOGICAL_CPUS];                /* pthread handles */
     int i;
-    int concurrency = LOGICAL_CPUS;                 /* Number of concurrent threads */
 #else
     TestThreadData  testdatas[1];        /* Test data to pass to thread func */
-    int concurrency = 1;
 #endif
 
     /*
@@ -117,8 +114,7 @@ void DoNumSort(void)
     /*
      ** Set the error context string.
      */
-    errorcontext="CPU:Numeric Sort";
-    numsortstruct->errorcontext = errorcontext;
+    numsortstruct->errorcontext="CPU:Numeric Sort";
 
     /*
      ** See if we need to do self adjustment code.
@@ -126,13 +122,13 @@ void DoNumSort(void)
     DoNumSortAdjust(numsortstruct);
 
 #ifdef LOGICAL_CPUS
-    for (i=1;i<concurrency;i++) {
+    for (i=1;i<numsortstruct->concurrency;i++) {
         int systemerror;        /* For holding error codes */
         testdatas[i].control = numsortstruct;
         systemerror = pthread_create(&threads[i], 0, NumSortFunc, &testdatas[i]);
         if(systemerror)
         {
-            ReportError(errorcontext,systemerror);
+            ReportError(numsortstruct->errorcontext,systemerror);
             ErrorExit();
         }
     }
@@ -141,13 +137,13 @@ void DoNumSort(void)
     NumSortFunc(&testdatas[0]);
     numsortstruct->result = testdatas[0].result;
 #ifdef LOGICAL_CPUS
-    for (i=1;i<concurrency;i++) {
+    for (i=1;i<numsortstruct->concurrency;i++) {
         pthread_join(threads[i], 0);
         merge_result(&numsortstruct->result, &testdatas[i].result);
     }
 #endif
 
-    numsortstruct->cpurate  = numsortstruct->result.iterations * (double)numsortstruct->numarrays / ( numsortstruct->result.cpusecs / concurrency );
+    numsortstruct->cpurate  = numsortstruct->result.iterations * (double)numsortstruct->numarrays / ( numsortstruct->result.cpusecs / numsortstruct->concurrency );
     numsortstruct->realrate = numsortstruct->result.iterations * (double)numsortstruct->numarrays / numsortstruct->result.realsecs;
 
     printf("iterations=%f %d realsecs=%f cpusecs=%f cpurate=%f\n", numsortstruct->result.iterations, numsortstruct->numarrays,
@@ -220,7 +216,6 @@ void *NumSortFunc(void *data)
     TestControlStruct *numsortstruct;      /* Local pointer to global struct */
     StopWatchStruct stopwatch;             /* Stop watch to time the test */
     farlong *arraybase;     /* Base pointers of array */
-    double iterations;      /* Iteration counter */
     int systemerror;        /* For holding error codes */
 
     testdata = (TestThreadData *)data;
@@ -241,7 +236,7 @@ void *NumSortFunc(void *data)
      ** All's well if we get here.  Repeatedly perform sorts until the
      ** accumulated elapsed time is greater than # of seconds requested.
      */
-    iterations=(double)0.0;
+    testdata->result.iterations=(double)0.0;
     ResetStopWatch(&stopwatch);
 
     do {
@@ -249,7 +244,7 @@ void *NumSortFunc(void *data)
                 numsortstruct->arraysize,
                 numsortstruct->numarrays,
                 &stopwatch);
-        iterations+=(double)1.0;
+        testdata->result.iterations+=(double)1.0;
     } while(stopwatch.realsecs<numsortstruct->request_secs);
 
     /*
@@ -258,7 +253,6 @@ void *NumSortFunc(void *data)
      */
     FreeMemory((farvoid *)arraybase,&systemerror);
 
-    testdata->result.iterations = iterations;
     testdata->result.cpusecs = stopwatch.cpusecs;
     testdata->result.realsecs = stopwatch.realsecs;
     return 0;

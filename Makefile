@@ -19,10 +19,10 @@ default: nbench
 # You should leave -static in the CFLAGS so that your sysinfo can be
 # compiled into the executable.
 
-CC = gcc
+# CC = gcc
 
 # generic options for gcc
-CFLAGS = -s -static -Wall -O3
+# CFLAGS = -s -static -Wall -O3
 
 # if your gcc lets you do it, then try this one
 #CFLAGS = -s -static -Wall -O3 -fomit-frame-pointer -funroll-loops
@@ -91,7 +91,20 @@ MACHINE=
 # For any Unix flavor you need -DLINUX
 # You also need -DLINUX to get the new indices
 
-DEFINES= -DLINUX $(NO_UNAME)
+# DEFINES= -DLINUX $(NO_UNAME)
+
+UNAME := $(shell uname)
+
+ifeq ($(UNAME), Darwin)
+    CC=cc
+    CFLAGS = -Wall -O3
+    DEFINES= -DOSX $(NO_UNAME)
+else
+    CC=gcc
+    CFLAGS = -s -static -Wall -O3
+    DEFINES= -DLINUX $(NO_UNAME)
+endif
+
 
 ##########################################################################
 # For LINUX-like systems with gcc

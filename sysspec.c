@@ -44,6 +44,10 @@
 #include <sys\stat.h>
 #endif
 
+#ifdef LOGICAL_CPUS
+#include <pthread.h>
+#endif
+
 /*
 ** Global parameters.
 */
@@ -55,6 +59,9 @@ int global_align;		/* Memory alignment */
 */
 ulong mem_array[2][MEM_ARRAY_SIZE];
 int mem_array_ents;		/* # of active entries */
+#ifdef LOGICAL_CPUS
+pthread_mutex_t master_lock = PTHREAD_MUTEX_INITIALIZER;
+#endif
 
 /*********************************
 **  MEMORY MANAGEMENT ROUTINES  **
@@ -135,6 +142,9 @@ farvoid *AllocateMemory(unsigned long nbytes,   /* # of bytes to alloc */
     farvoid *returnval;             /* Return value */
     ulong true_addr;		/* True address */
     ulong adj_addr;			/* Adjusted address */
+#ifdef LOGICAL_CPUS
+    pthread_mutex_lock(&master_lock);
+#endif
 
     returnval=(farvoid *)malloc((size_t)(nbytes+2L*(long)global_align));
     if(returnval==(farvoid *)NULL)
@@ -150,6 +160,9 @@ farvoid *AllocateMemory(unsigned long nbytes,   /* # of bytes to alloc */
     {
         if(AddMemArray(true_addr, adj_addr))
             *errorcode=ERROR_MEMARRAY_FULL;
+#ifdef LOGICAL_CPUS
+        pthread_mutex_unlock(&master_lock);
+#endif
         return(returnval);
     }
 
@@ -165,6 +178,9 @@ farvoid *AllocateMemory(unsigned long nbytes,   /* # of bytes to alloc */
     returnval=(void *)adj_addr;
     if(AddMemArray(true_addr,adj_addr))
         *errorcode=ERROR_MEMARRAY_FULL;
+#ifdef LOGICAL_CPUS
+    pthread_mutex_unlock(&master_lock);
+#endif
     return(returnval);
 #endif
 
@@ -233,15 +249,25 @@ void FreeMemory(farvoid *mempointer,    /* Pointer to memory block */
 #ifdef MALLOCMEM
     ulong adj_addr, true_addr;
 
+#ifdef LOGICAL_CPUS
+    pthread_mutex_lock(&master_lock);
+#endif
     /* Locate item in memory array */
     adj_addr=(ulong)mempointer;
     if(RemoveMemArray(adj_addr, &true_addr))
-    {	*errorcode=ERROR_MEMARRAY_NFOUND;
+    {
+        *errorcode=ERROR_MEMARRAY_NFOUND;
+#ifdef LOGICAL_CPUS
+        pthread_mutex_unlock(&master_lock);
+#endif
         return;
     }
     mempointer=(void *)true_addr;
     free(mempointer);
     *errorcode=0;
+#ifdef LOGICAL_CPUS
+    pthread_mutex_unlock(&master_lock);
+#endif
     return;
 #endif
 }

@@ -52,6 +52,10 @@
 #include "sysspec.h"
 #include "misc.h"
 
+#ifdef LOGICAL_CPUS
+#include <pthread.h>
+#endif
+
 #ifdef DEBUG
 static int stringsort_status=0;
 #endif
@@ -61,10 +65,13 @@ static int stringsort_status=0;
 ********************/
 
 void DoStringSort(void);
+void DoStringSortAdjust(TestControlStruct *strsortstruct);
 
-static ulong DoStringSortIteration(faruchar *arraybase,
+static void *StringSortFunc(void *data);
+static void DoStringSortIteration(faruchar *arraybase,
 		uint numarrays,
-		ulong arraysize);
+		ulong arraysize,
+        StopWatchStruct *stopwatch);
 static farulong *LoadStringArray(faruchar *strarray,
 		uint numarrays,
 		ulong *strings,
@@ -100,13 +107,14 @@ static void strsift(farulong *optrarray,
 */
 void DoStringSort(void)
 {
-
-    SortStruct *strsortstruct;      /* Local for sort structure */
-    faruchar *arraybase;            /* Base pointer of char array */
-    long accumtime;                 /* Accumulated time */
-    double iterations;              /* # of iterations */
-    char *errorcontext;             /* Error context string pointer */
-    int systemerror;                /* For holding error code */
+#ifdef LOGICAL_CPUS
+    TestThreadData testdatas[LOGICAL_CPUS];
+    pthread_t threads[LOGICAL_CPUS];
+    int i;
+#else
+    TestThreadData testdatas[1];
+#endif
+    TestControlStruct *strsortstruct;      /* Local for sort structure */
 
     /*
      ** Link to global structure
@@ -116,13 +124,59 @@ void DoStringSort(void)
     /*
      ** Set the error context
      */
-    errorcontext="CPU:String Sort";
+    strsortstruct->errorcontext="CPU:String Sort";
 
     /*
      ** See if we have to perform self-adjustment code
      */
+    DoStringSortAdjust(strsortstruct);
+
+    /*
+     ** All's well if we get here.  Repeatedly perform sorts until the
+     ** accumulated elapsed time is greater than # of seconds requested.
+     */
+#ifdef LOGICAL_CPUS
+    for (i=1;i<strsortstruct->concurrency;i++) {
+        int systemerror;        /* For holding error codes */
+        testdatas[i].control = strsortstruct;
+        systemerror = pthread_create(&threads[i], 0, StringSortFunc, &testdatas[i]);
+        if(systemerror)
+        {
+            ReportError(strsortstruct->errorcontext,systemerror);
+            ErrorExit();
+        }
+    }
+#endif
+    testdatas[0].control = strsortstruct;
+    StringSortFunc(&testdatas[0]);
+    strsortstruct->result = testdatas[0].result;
+#ifdef LOGICAL_CPUS
+    for (i=1;i<strsortstruct->concurrency;i++) {
+        pthread_join(threads[i], 0);
+        merge_result(&strsortstruct->result, &testdatas[i].result);
+    }
+#endif
+
+    strsortstruct->cpurate  = strsortstruct->result.iterations * (double)strsortstruct->numarrays / ( strsortstruct->result.cpusecs / strsortstruct->concurrency );
+    strsortstruct->realrate = strsortstruct->result.iterations * (double)strsortstruct->numarrays / strsortstruct->result.realsecs;
+
+    printf("iterations=%f %d realsecs=%f cpusecs=%f cpurate=%f\n", strsortstruct->result.iterations, strsortstruct->numarrays,
+              strsortstruct->result.realsecs, strsortstruct->result.cpusecs, strsortstruct->cpurate);
+
+#ifdef DEBUG
+    if (stringsort_status==0) printf("String sort: OK\n");
+    stringsort_status=0;
+#endif
+    return;
+}
+
+void DoStringSortAdjust(TestControlStruct *strsortstruct)
+{
     if(strsortstruct->adjust==0)
     {
+        faruchar *arraybase;            /* Base pointer of char array */
+        StopWatchStruct stopwatch;      /* Stop watch to time the test */
+        int systemerror;                /* For holding error code */
         /*
          ** Initialize the number of arrays.
          */
@@ -137,9 +191,12 @@ void DoStringSort(void)
             arraybase=(faruchar *)AllocateMemory((strsortstruct->arraysize+100L) *
                     (long)strsortstruct->numarrays,&systemerror);
             if(systemerror)
-            {       ReportError(errorcontext,systemerror);
+            {
+                ReportError(strsortstruct->errorcontext,systemerror);
                 ErrorExit();
             }
+
+            ResetStopWatch(&stopwatch);
 
             /*
              ** Do an iteration of the string sort.  If the
@@ -147,55 +204,67 @@ void DoStringSort(void)
              ** minimum, then de-allocate the array, reallocate a
              ** an additional array, and try again.
              */
-            if(DoStringSortIteration(arraybase,
+            DoStringSortIteration(arraybase,
                         strsortstruct->numarrays,
-                        strsortstruct->arraysize)>global_min_ticks)
-                break;          /* We're ok...exit */
+                        strsortstruct->arraysize, &stopwatch);
 
             FreeMemory((farvoid *)arraybase,&systemerror);
+
+            if(stopwatch.realsecs > 0.001)
+                break;          /* We're ok...exit */
+
             strsortstruct->numarrays+=1;
         }
+        strsortstruct->adjust=1;
     }
-    else
-    {
-        /*
-         ** We don't have to perform self adjustment code.
-         ** Simply allocate the space for the array.
-         */
-        arraybase=(faruchar *)AllocateMemory((strsortstruct->arraysize+100L) *
+}
+
+void *StringSortFunc(void *data)
+{
+    TestThreadData *testdata;       /* test data passed from thread func */
+    faruchar *arraybase;            /* Base pointer of char array */
+    StopWatchStruct stopwatch;      /* Stop watch to time the test */
+    int systemerror;                /* For holding error code */
+    TestControlStruct *strsortstruct;      /* Local pointer to global struct */
+
+    testdata = (TestThreadData *)data;
+    strsortstruct = testdata->control;
+
+    /*
+     ** Allocate the space for the array.
+     */
+    arraybase=(faruchar *)AllocateMemory((strsortstruct->arraysize+100L) *
                 (long)strsortstruct->numarrays,&systemerror);
-        if(systemerror)
-        {       ReportError(errorcontext,systemerror);
-            ErrorExit();
-        }
+    if(systemerror)
+    {
+         ReportError(strsortstruct->errorcontext,systemerror);
+         ErrorExit();
     }
+
     /*
      ** All's well if we get here.  Repeatedly perform sorts until the
      ** accumulated elapsed time is greater than # of seconds requested.
      */
-    accumtime=0L;
-    iterations=(double)0.0;
+    testdata->result.iterations = 0.0;
+    ResetStopWatch(&stopwatch);
 
     do {
-        accumtime+=DoStringSortIteration(arraybase,
+        DoStringSortIteration(arraybase,
                 strsortstruct->numarrays,
-                strsortstruct->arraysize);
-        iterations+=(double)strsortstruct->numarrays;
-    } while(TicksToSecs(accumtime)<strsortstruct->request_secs);
+                strsortstruct->arraysize,
+                &stopwatch);
+        testdata->result.iterations+=(double)strsortstruct->numarrays;
+    } while(stopwatch.realsecs<strsortstruct->request_secs);
 
     /*
      ** Clean up, calculate results, and go home.
      ** Set flag to show we don't need to rerun adjustment code.
      */
     FreeMemory((farvoid *)arraybase,&systemerror);
-    strsortstruct->sortspersec=iterations / (double)TicksToFracSecs(accumtime);
-    if(strsortstruct->adjust==0)
-        strsortstruct->adjust=1;
-#ifdef DEBUG
-    if (stringsort_status==0) printf("String sort: OK\n");
-    stringsort_status=0;
-#endif
-    return;
+
+    testdata->result.cpusecs = stopwatch.cpusecs;
+    testdata->result.realsecs = stopwatch.realsecs;
+    return 0;
 }
 
 /**************************
@@ -206,11 +275,10 @@ void DoStringSort(void)
 ** Note that this routine also builds the offset pointer
 ** array.
 */
-static ulong DoStringSortIteration(faruchar *arraybase,
-        uint numarrays,ulong arraysize)
+static void DoStringSortIteration(faruchar *arraybase,
+        uint numarrays,ulong arraysize,StopWatchStruct *stopwatch)
 {
     farulong *optrarray;            /* Offset pointer array */
-    unsigned long elapsed;          /* Elapsed ticks */
     unsigned long nstrings;         /* # of strings in array */
     int syserror;                   /* System error code */
     unsigned int i;                 /* Index */
@@ -232,13 +300,14 @@ static ulong DoStringSortIteration(faruchar *arraybase,
     /*
      ** Start the stopwatch
      */
-    elapsed=StartStopwatch();
+    StartStopWatch(stopwatch);
 
     /*
      ** Execute heapsorts
      */
     for(i=0;i<numarrays;i++)
-    {       StrHeapSort(tempobase,tempsbase,nstrings,0L,nstrings-1);
+    {
+        StrHeapSort(tempobase,tempsbase,nstrings,0L,nstrings-1);
         tempobase+=nstrings;    /* Advance base pointers */
         tempsbase+=arraysize+100;
     }
@@ -246,7 +315,7 @@ static ulong DoStringSortIteration(faruchar *arraybase,
     /*
      ** Record elapsed time
      */
-    elapsed=StopStopwatch(elapsed);
+    StopStopWatch(stopwatch);
 
 #ifdef DEBUG
     {
@@ -257,7 +326,8 @@ static ulong DoStringSortIteration(faruchar *arraybase,
                  ** sort.
                  */
             if(str_is_less(optrarray,arraybase,nstrings,i+1,i))
-            {       printf("Sort Error\n");
+            {
+                printf("Sort Error\n");
                 stringsort_status=1;
                 break;
             }
@@ -270,11 +340,6 @@ static ulong DoStringSortIteration(faruchar *arraybase,
      ** LoadStringArray()
      */
     FreeMemory((farvoid *)optrarray,&syserror);
-
-    /*
-     ** Return elapsed ticks.
-     */
-    return(elapsed);
 }
 
 /********************
@@ -328,9 +393,9 @@ static farulong *LoadStringArray(faruchar *strarray, /* String array */
         /* stringlength=(unsigned char)((1+abs_randwc(76L)) & 0xFFL);*/
         stringlength=(unsigned char)((1+abs_randwc((int32)76)) & 0xFFL);
         if((unsigned long)stringlength+curroffset+1L>=arraysize)
-        {       stringlength=(unsigned char)((arraysize-curroffset-1L) &
-                0xFF);
-        fullflag=1;     /* Indicates a full */
+        {
+            stringlength=(unsigned char)((arraysize-curroffset-1L) & 0xFF);
+            fullflag=1;     /* Indicates a full */
         }
 
         /*
@@ -343,9 +408,9 @@ static farulong *LoadStringArray(faruchar *strarray, /* String array */
          ** Fill up the rest of the string with random bytes.
          */
         for(i=0;i<stringlength;i++)
-        {       *(strarray+curroffset)=
-            /* (unsigned char)(abs_randwc((long)0xFE)); */
-            (unsigned char)(abs_randwc((int32)0xFE));
+        {
+            *(strarray+curroffset)= /* (unsigned char)(abs_randwc((long)0xFE)); */
+                                       (unsigned char)(abs_randwc((int32)0xFE));
             curroffset++;
         }
 
@@ -378,7 +443,8 @@ static farulong *LoadStringArray(faruchar *strarray, /* String array */
             numarrays,
             &systemerror);
     if(systemerror)
-    {       ReportError("CPU:Stringsort",systemerror);
+    {
+        ReportError("ppCPU:Stringsort",systemerror);
         FreeMemory((void *)strarray,&systemerror);
         ErrorExit();
     }
@@ -390,7 +456,8 @@ static farulong *LoadStringArray(faruchar *strarray, /* String array */
      */
     curroffset=0;
     for(j=0;j<*nstrings;j++)
-    {       *(optrarray+j)=curroffset;
+    {
+        *(optrarray+j)=curroffset;
         curroffset+=(unsigned long)(*(strarray+curroffset))+1L;
     }
 
@@ -401,7 +468,8 @@ static farulong *LoadStringArray(faruchar *strarray, /* String array */
     k=1;
     tempobase=optrarray;
     while(k<numarrays)
-    {       tempobase+=*nstrings;
+    {
+        tempobase+=*nstrings;
         for(l=0;l<*nstrings;l++)
             tempobase[l]=optrarray[l];
         k++;

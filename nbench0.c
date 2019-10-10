@@ -78,7 +78,7 @@ int write_to_file;              /* Write output to file */
 ** each of the tests.
 */
 TestControlStruct global_numsortstruct;        /* For numeric sort */
-SortStruct global_strsortstruct;        /* For string sort */
+TestControlStruct global_strsortstruct;        /* For string sort */
 BitOpStruct global_bitopstruct;         /* For bitfield operations */
 EmFloatStruct global_emfloatstruct;     /* For emul. float. point */
 FourierStruct global_fourierstruct;     /* For fourier test */
@@ -87,6 +87,11 @@ IDEAStruct global_ideastruct;           /* For IDEA encryption */
 HuffStruct global_huffstruct;           /* For Huffman compression */
 NNetStruct global_nnetstruct;           /* For Neural Net */
 LUStruct global_lustruct;               /* For LU decomposition */
+
+/*
+** PROTOTYPES
+*/
+static void set_multithread();
 
 /*
 ** The following array of function struct pointers lets
@@ -164,11 +169,13 @@ int main(int argc, char *argv[])
     win31tinfo.dwSize=(DWORD)sizeof(TIMERINFO);
     /* Load library */
     if((hThlp=LoadLibrary("TOOLHELP.DLL"))<32)
-    {       printf("Error loading TOOLHELP\n");
+    {
+        printf("Error loading TOOLHELP\n");
         exit(0);
     }
     if(!(lpfn=GetProcAddress(hThlp,"TimerCount")))
-    {       printf("TOOLHELP error\n");
+    {
+        printf("TOOLHELP error\n");
         exit(0);
     }
 #endif
@@ -202,9 +209,11 @@ int main(int argc, char *argv[])
      */
     set_request_secs();     /* Set all request_secs fields */
     global_numsortstruct.adjust=0;
+    global_numsortstruct.concurrency=1;
     global_numsortstruct.arraysize=NUMARRAYSIZE;
 
     global_strsortstruct.adjust=0;
+    global_strsortstruct.concurrency=1;
     global_strsortstruct.arraysize=STRINGARRAYSIZE;
 
     global_bitopstruct.adjust=0;
@@ -240,7 +249,8 @@ int main(int argc, char *argv[])
     if(argc>1)
         for(i=1;i<argc;i++)
             if(parse_arg(argv[i])==-1)
-            {       display_help(argv[0]);
+            {
+                display_help(argv[0]);
                 exit(0);
             }
     /*
@@ -307,7 +317,8 @@ int main(int argc, char *argv[])
     for(i=0;i<NUMTESTS;i++)
     {
         if(tests_to_do[i])
-        {       sprintf(buffer,"%s    :",ftestnames[i]);
+        {
+            sprintf(buffer,"%s    :",ftestnames[i]);
             output_string(buffer);
             if (0!=bench_with_confidence(i,
                         &bmean,
@@ -432,6 +443,10 @@ static int parse_arg(char *argptr)
 
         case 'V': global_allstats=1; return(0); /* verbose mode */
 
+#ifdef LOGICAL_CPUS
+        case 'M': set_multithread(); return(0); /* test in multithread */
+#endif
+
         case 'C':                       /* Command file name */
                   /*
                    ** First try to open the file for reading.
@@ -493,9 +508,9 @@ static void read_comfile(FILE *cfile)
          ** "=", then flag an error.
          */
         if((eptr=strchr(inbuf,(int)'='))==(char *)NULL)
-        {       printf("**COMMAND FILE ERROR at LINE:\n %s\n",
-                inbuf);
-        goto skipswitch;        /* A GOTO!!!! */
+        {
+            printf("**COMMAND FILE ERROR at LINE:\n %s\n", inbuf);
+            goto skipswitch;        /* A GOTO!!!! */
         }
 
         /*
@@ -512,9 +527,9 @@ static void read_comfile(FILE *cfile)
         } while(--i>=0);
 
         if(i<0)
-        {       printf("**COMMAND FILE ERROR -- UNKNOWN PARAM: %s",
-                inbuf);
-        goto skipswitch;
+        {
+            printf("**COMMAND FILE ERROR -- UNKNOWN PARAM: %s", inbuf);
+            goto skipswitch;
         }
 
         /*
@@ -543,9 +558,9 @@ static void read_comfile(FILE *cfile)
                  ** Open the output file.
                  */
                 if(global_ofile==(FILE *)NULL)
-                {       printf("**Error opening output file: %s\n",
-                        global_ofile_name);
-                ErrorExit();
+                {
+                    printf("**Error opening output file: %s\n", global_ofile_name);
+                    ErrorExit();
                 }
                 write_to_file=-1;
                 break;
@@ -805,6 +820,20 @@ static void set_request_secs(void)
     return;
 }
 
+#ifdef LOGICAL_CPUS
+/*********************
+** set_multithread **
+**********************
+** Set every test's concurrency to LOGICAL_CPUS
+** to test using multithread
+*/
+static void set_multithread(void)
+{
+    global_numsortstruct.concurrency = LOGICAL_CPUS;
+    global_strsortstruct.concurrency = LOGICAL_CPUS;
+}
+#endif
+
 
 /**************************
 ** bench_with_confidence **
@@ -838,7 +867,8 @@ static int bench_with_confidence(int fid,       /* Function id */
      ** Get first 5 scores.  Then begin confidence testing.
      */
     for (i=0;i<5;i++)
-    {       (*funcpointer[fid])();
+    {
+        (*funcpointer[fid])();
         myscores[i]=getscore(fid);
 #ifdef DEBUG
         printf("score # %d = %g\n", i, myscores[i]);
@@ -1033,9 +1063,9 @@ static double getscore(int fid)
     switch(fid)
     {
         case TF_NUMSORT:
-            return(global_numsortstruct.cpurate);
+            return(global_numsortstruct.realrate);
         case TF_SSORT:
-            return(global_strsortstruct.sortspersec);
+            return(global_strsortstruct.realrate);
         case TF_BITOP:
             return(global_bitopstruct.bitopspersec);
         case TF_FPEMU:
