@@ -23,7 +23,7 @@
 #include "nmglobal.h"
 #include "misc.h"
 
-#ifdef LOGICAL_CPUS
+#if defined(LINUX) || defined(OSX)
 #include <pthread.h>
 #include "sysspec.h"
 #endif
@@ -133,15 +133,15 @@ int32 randnum(int32 lngval)
 */
 void run_bench_with_concurrency(TestControlStruct *testctl, void *(*thread_func)(void *))
 {
-#ifdef LOGICAL_CPUS
-    TestThreadData testdatas[LOGICAL_CPUS];
-    pthread_t threads[LOGICAL_CPUS];
+#if defined(LINUX) || defined(OSX)
+    TestThreadData *testdatas = (TestThreadData *)malloc(sizeof(TestThreadData)*global_concurrency);
+    pthread_t *threads = (pthread_t *)malloc(sizeof(pthread_t)*global_concurrency);
     int i;
 #else
     TestThreadData testdatas[1];
 #endif
 
-#ifdef LOGICAL_CPUS
+#if defined(LINUX) || defined(OSX)
     for (i=1;i<global_concurrency;i++) {
         int systemerror;        /* For holding error codes */
         testdatas[i].control = testctl;
@@ -149,6 +149,8 @@ void run_bench_with_concurrency(TestControlStruct *testctl, void *(*thread_func)
         if(systemerror)
         {
             ReportError(testctl->errorcontext,systemerror);
+            free(testdatas);
+            free(threads);
             ErrorExit();
         }
     }
@@ -158,11 +160,13 @@ void run_bench_with_concurrency(TestControlStruct *testctl, void *(*thread_func)
     thread_func(&testdatas[0]);
     testctl->result = testdatas[0].result;
 
-#ifdef LOGICAL_CPUS
+#if defined(LINUX) || defined(OSX)
     for (i=1;i<global_concurrency;i++) {
         pthread_join(threads[i], 0);
         merge_result(&testctl->result, &testdatas[i].result);
     }
+    free(testdatas);
+    free(threads);
 #endif
 
     testctl->cpurate  = testctl->result.iterations / ( testctl->result.cpusecs / global_concurrency );

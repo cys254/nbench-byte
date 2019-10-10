@@ -44,7 +44,7 @@
 #include <sys\stat.h>
 #endif
 
-#ifdef LOGICAL_CPUS
+#if defined(LINUX) || defined(OSX)
 #include <pthread.h>
 #endif
 
@@ -59,7 +59,7 @@ int global_align;		/* Memory alignment */
 */
 ulong mem_array[2][MEM_ARRAY_SIZE];
 int mem_array_ents;		/* # of active entries */
-#ifdef LOGICAL_CPUS
+#if defined(LINUX) || defined(OSX)
 pthread_mutex_t master_lock = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
@@ -142,7 +142,7 @@ farvoid *AllocateMemory(unsigned long nbytes,   /* # of bytes to alloc */
     farvoid *returnval;             /* Return value */
     ulong true_addr;		/* True address */
     ulong adj_addr;			/* Adjusted address */
-#ifdef LOGICAL_CPUS
+#if defined(LINUX) || defined(OSX)
     pthread_mutex_lock(&master_lock);
 #endif
 
@@ -160,7 +160,7 @@ farvoid *AllocateMemory(unsigned long nbytes,   /* # of bytes to alloc */
     {
         if(AddMemArray(true_addr, adj_addr))
             *errorcode=ERROR_MEMARRAY_FULL;
-#ifdef LOGICAL_CPUS
+#if defined(LINUX) || defined(OSX)
         pthread_mutex_unlock(&master_lock);
 #endif
         return(returnval);
@@ -178,7 +178,7 @@ farvoid *AllocateMemory(unsigned long nbytes,   /* # of bytes to alloc */
     returnval=(void *)adj_addr;
     if(AddMemArray(true_addr,adj_addr))
         *errorcode=ERROR_MEMARRAY_FULL;
-#ifdef LOGICAL_CPUS
+#if defined(LINUX) || defined(OSX)
     pthread_mutex_unlock(&master_lock);
 #endif
     return(returnval);
@@ -249,7 +249,7 @@ void FreeMemory(farvoid *mempointer,    /* Pointer to memory block */
 #ifdef MALLOCMEM
     ulong adj_addr, true_addr;
 
-#ifdef LOGICAL_CPUS
+#if defined(LINUX) || defined(OSX)
     pthread_mutex_lock(&master_lock);
 #endif
     /* Locate item in memory array */
@@ -257,7 +257,7 @@ void FreeMemory(farvoid *mempointer,    /* Pointer to memory block */
     if(RemoveMemArray(adj_addr, &true_addr))
     {
         *errorcode=ERROR_MEMARRAY_NFOUND;
-#ifdef LOGICAL_CPUS
+#if defined(LINUX) || defined(OSX)
         pthread_mutex_unlock(&master_lock);
 #endif
         return;
@@ -265,7 +265,7 @@ void FreeMemory(farvoid *mempointer,    /* Pointer to memory block */
     mempointer=(void *)true_addr;
     free(mempointer);
     *errorcode=0;
-#ifdef LOGICAL_CPUS
+#if defined(LINUX) || defined(OSX)
     pthread_mutex_unlock(&master_lock);
 #endif
     return;

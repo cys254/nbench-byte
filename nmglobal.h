@@ -207,12 +207,6 @@
 */
 #define MEM_ARRAY_SIZE 20
 
-
-/*
-** Number of available logical cpus, used for multithread benchmark
-*/
-#define LOGICAL_CPUS 2
-
 /*
 ** TYPEDEFS
 */

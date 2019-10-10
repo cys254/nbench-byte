@@ -448,8 +448,8 @@ static int parse_arg(char *argptr)
 
         case 'V': global_allstats=1; return(0); /* verbose mode */
 
-#ifdef LOGICAL_CPUS
-        case 'M': global_concurrency=LOGICAL_CPUS; return(0); /* test in multithread */
+#if defined(LINUX) || defined(OSX)
+        case 'M': global_concurrency=atoi(argptr); break; /* test in multithread */
 #endif
 
         case 'C':                       /* Command file name */
