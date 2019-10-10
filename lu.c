@@ -209,8 +209,6 @@ static void LUDataSetup2(TestControlStruct *loclustruct, LUData *ludata, ushort 
 {
     int systemerror;
 
-    memset(ludata, 0, sizeof(LUData));
-
     /*
      ** allocate the proper number of arrays and proceed.
      */
