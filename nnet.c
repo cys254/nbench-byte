@@ -169,39 +169,33 @@ char *inpath="NNET.DAT";
 void DoNNET(void)
 {
     TestControlStruct *locnnetstruct;      /* Local ptr to global data */
-    StopWatchStruct stopwatch;             /* Stop watch to time the test */
-    NNetData nnetdata;                     /* NNet test data */
 
     /*
      ** Link to global data
      */
     locnnetstruct=&global_nnetstruct;
 
-    memset(&nnetdata, 0, sizeof(NNetData));
-
-    /*
-     ** Init random number generator.
-     ** NOTE: It is important that the random number generator
-     **  be re-initialized for every pass through this test.
-     **  The NNET algorithm uses the random number generator
-     **  to initialize the net.  Results are sensitive to
-     **  the initial neural net state.
-     */
-    randnum((int32)3);
-
-    /*
-     ** Read in the input and output patterns.  We'll do this
-     ** only once here at the beginning.  These values don't
-     ** change once loaded.
-     */
-    if(read_data_file(&nnetdata)!=0)
-        ErrorExit();
-
     /*
      ** See if we need to perform self adjustment loop.
      */
     if(locnnetstruct->adjust==0)
     {
+        StopWatchStruct stopwatch;             /* Stop watch to time the test */
+        NNetData *nnetdata;                    /* NNet test data */
+
+        nnetdata = (NNetData*)malloc(sizeof(NNetData));
+        memset(nnetdata, 0, sizeof(NNetData));
+
+        /*
+         ** Read in the input and output patterns.  We'll do this
+         ** only once here at the beginning.  These values don't
+         ** change once loaded.
+         */
+        if(read_data_file(nnetdata)!=0) {
+            free(nnetdata);
+            ErrorExit();
+        }
+
         /*
          ** Do self-adjustment.  This involves initializing the
          ** # of loops and increasing the loop count until we
@@ -213,16 +207,19 @@ void DoNNET(void)
         {
             randnum((int32)3);
             ResetStopWatch(&stopwatch);
-            DoNNetIteration(&nnetdata, locnnetstruct->loops, &stopwatch);
+            DoNNetIteration(nnetdata, locnnetstruct->loops, &stopwatch);
              
             if(stopwatch.realsecs>global_min_itersec) break;
         }
+        locnnetstruct->adjust = 1;
+        free(nnetdata);
     }
 
     /*
      ** All's well if we get here.  Do the test.
      */
     run_bench_with_concurrency(locnnetstruct, NNetFunc);
+
 }
 
 /***********
@@ -239,12 +236,13 @@ void *NNetFunc(void *data)
     TestThreadData *testdata;              /* test data passed from thread func */
     TestControlStruct *locnnetstruct;      /* Local ptr to global data */
     StopWatchStruct stopwatch;             /* Stop watch to time the test */
-    NNetData nnetdata;                     /* NNet test data */
+    NNetData *nnetdata;                    /* NNet test data */
 
     testdata = (TestThreadData*)data;
     locnnetstruct = testdata->control;
 
-    memset(&nnetdata, 0, sizeof(NNetData));
+    nnetdata = (NNetData*)malloc(sizeof(NNetData));
+    memset(nnetdata, 0, sizeof(NNetData));
 
     /*
      ** Init random number generator.
@@ -261,8 +259,10 @@ void *NNetFunc(void *data)
      ** only once here at the beginning.  These values don't
      ** change once loaded.
      */
-    if(read_data_file(&nnetdata)!=0)
+    if(read_data_file(nnetdata)!=0) {
+        free(nnetdata);
         ErrorExit();
+    }
 
     /*
      ** All's well if we get here.  Do the test.
@@ -272,9 +272,14 @@ void *NNetFunc(void *data)
 
     do {
         randnum((int32)3);    /* Gotta do this for Neural Net */
-        DoNNetIteration(&nnetdata, locnnetstruct->loops, &stopwatch);
+        DoNNetIteration(nnetdata, locnnetstruct->loops, &stopwatch);
         testdata->result.iterations+=(double)locnnetstruct->loops;
     } while(stopwatch.realsecs<locnnetstruct->request_secs);
+
+    testdata->result.cpusecs = stopwatch.cpusecs;
+    testdata->result.realsecs = stopwatch.realsecs;
+
+    free(nnetdata);
 
     return 0;
 }

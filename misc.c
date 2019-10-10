@@ -172,8 +172,10 @@ void run_bench_with_concurrency(TestControlStruct *testctl, void *(*thread_func)
     testctl->cpurate  = testctl->result.iterations / ( testctl->result.cpusecs / global_concurrency );
     testctl->realrate = testctl->result.iterations / testctl->result.realsecs;
 
+#ifdef DEBUG
     printf("iterations=%f realsecs=%f realrate=%f cpusecs=%f cpurate=%f\n", testctl->result.iterations,
               testctl->result.realsecs, testctl->realrate, testctl->result.cpusecs, testctl->cpurate);
+#endif
 }
 
 /*******************************

@@ -112,9 +112,9 @@ static void LUDataSetup(TestControlStruct *loclustruct, LUData *ludata);
 static void LUDataSetup1(LUData *ludata);
 static void LUDataSetup2(TestControlStruct *loclustruct, LUData *ludata, ushort numarrays);
 static void LUDataCleanup(LUData *ludata);
-static ulong DoLUIteration(fardouble *a, fardouble *b,
+static void DoLUIteration(fardouble *a, fardouble *b,
 	fardouble *abase, fardouble *bbase,
-	ulong numarrays, fardouble *LUtempvv);
+	ulong numarrays, fardouble *LUtempvv, StopWatchStruct *stopwatch);
 static void build_problem( double a[][LUARRAYCOLS],
 	int n, double b[LUARRAYROWS]);
 static int ludcmp(double a[][LUARRAYCOLS],
@@ -286,7 +286,8 @@ void DoLUAdjust(TestControlStruct *loclustruct)
         {
             LUDataSetup2(loclustruct, &ludata, i+1);
 
-            DoLUIteration(ludata.a,ludata.b,ludata.abase,ludata.bbase,i,ludata.LUtempvv);
+            ResetStopWatch(&stopwatch);
+            DoLUIteration(ludata.a,ludata.b,ludata.abase,ludata.bbase,i,ludata.LUtempvv, &stopwatch);
             if(stopwatch.realsecs > global_min_itersec)
             {
                 loclustruct->numarrays=i;
@@ -338,7 +339,7 @@ void *LUFunc(void *data)
 
     do {
         DoLUIteration(ludata.a,ludata.b,ludata.abase,ludata.bbase,
-                loclustruct->numarrays,ludata.LUtempvv);
+                loclustruct->numarrays,ludata.LUtempvv, &stopwatch);
         testdata->result.iterations+=(double)loclustruct->numarrays;
     } while(stopwatch.realsecs<loclustruct->request_secs);
 
@@ -360,24 +361,24 @@ void *LUFunc(void *data)
 ** An iteration refers to the repeated solution of several
 ** identical matrices.
 */
-static ulong DoLUIteration(fardouble *a,fardouble *b,
+static void DoLUIteration(fardouble *a,fardouble *b,
         fardouble *abase, fardouble *bbase,
         ulong numarrays,
-        fardouble *LUtempvv)
+        fardouble *LUtempvv,
+        StopWatchStruct *stopwatch)
 {
     fardouble *locabase;
     fardouble *locbbase;
     LUdblptr ptra;  /* For converting ptr to 2D array */
-    ulong elapsed;
     ulong j,i;              /* Indexes */
-
 
     /*
      ** Move the seed arrays (a & b) into the destination
      ** arrays;
      */
     for(j=0;j<numarrays;j++)
-    {       locabase=abase+j*LUARRAYROWS*LUARRAYCOLS;
+    {
+        locabase=abase+j*LUARRAYROWS*LUARRAYCOLS;
         locbbase=bbase+j*LUARRAYROWS;
         for(i=0;i<LUARRAYROWS*LUARRAYCOLS;i++)
             *(locabase+i)=*(a+i);
@@ -388,7 +389,7 @@ static ulong DoLUIteration(fardouble *a,fardouble *b,
     /*
      ** Do test...begin timing.
      */
-    elapsed=StartStopwatch();
+    StartStopWatch(stopwatch);
     for(i=0;i<numarrays;i++)
     {       locabase=abase+i*LUARRAYROWS*LUARRAYCOLS;
         locbbase=bbase+i*LUARRAYROWS;
@@ -396,7 +397,7 @@ static ulong DoLUIteration(fardouble *a,fardouble *b,
         lusolve(*ptra.ptrs.ap,LUARRAYROWS,locbbase,LUtempvv);
     }
 
-    return(StopStopwatch(elapsed));
+    StopStopWatch(stopwatch);
 }
 
 /******************

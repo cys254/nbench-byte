@@ -814,6 +814,8 @@ void ErrorExit()
 **    STOPWATCH ROUTINES    **
 *****************************/
 
+#if 0
+
 /****************************
 ** StartStopwatch
 ** Starts a software stopwatch.  Returns the first value of
@@ -929,6 +931,8 @@ double TicksToFracSecs(unsigned long tickamount)
     return((double)tickamount/(double)CLOCKS_PER_SEC);
 #endif
 }
+
+#endif
 
 /****************************
 ** StartStopWatch
