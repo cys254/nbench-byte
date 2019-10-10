@@ -54,11 +54,6 @@ void DoEmFloat(void)
     locemfloatstruct=&global_emfloatstruct;
 
     /*
-     ** Set the error context
-     */
-    locemfloatstruct->errorcontext="CPU:Floating Emulation";
-
-    /*
      ** Test the emulation routines.
      */
 #ifdef DEBUG
@@ -83,7 +78,6 @@ void DoEmFloat(void)
 #ifdef DEBUG
     printf("----------------------------------------------------------------------------\n");
 #endif
-    return;
 }
 
 /********************

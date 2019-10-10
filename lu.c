@@ -92,29 +92,38 @@ typedef struct
 	} ptrs;
 } LUdblptr;
 
-/*
-** GLOBALS
-*/
-fardouble *LUtempvv;
+typedef struct
+{
+    fardouble *a;
+    fardouble *b;
+    fardouble *abase;
+    fardouble *bbase;
+    LUdblptr ptra;
+    fardouble *LUtempvv;
+} LUData;
 
 /*
 ** PROTOTYPES
 */
 void DoLU(void);
-static void LUFreeMem(fardouble *a, fardouble *b,
-	fardouble *abase, fardouble *bbase);
+void DoLUAdjust(TestControlStruct *loclustruct);
+void *LUFunc(void *data);
+static void LUDataSetup(TestControlStruct *loclustruct, LUData *ludata);
+static void LUDataSetup1(LUData *ludata);
+static void LUDataSetup2(TestControlStruct *loclustruct, LUData *ludata, ushort numarrays);
+static void LUDataCleanup(LUData *ludata);
 static ulong DoLUIteration(fardouble *a, fardouble *b,
 	fardouble *abase, fardouble *bbase,
-	ulong numarrays);
+	ulong numarrays, fardouble *LUtempvv);
 static void build_problem( double a[][LUARRAYCOLS],
 	int n, double b[LUARRAYROWS]);
 static int ludcmp(double a[][LUARRAYCOLS],
-	int n, int indx[], int *d);
+	int n, int indx[], int *d, fardouble *LUtempvv);
 static void lubksb(double a[][LUARRAYCOLS],
 	int n, int indx[LUARRAYROWS],
 	double b[LUARRAYROWS]);
 static int lusolve(double a[][LUARRAYCOLS],
-	int n, double b[LUARRAYROWS]);
+	int n, double b[LUARRAYROWS], fardouble *LUtempvv);
 
 /*********
 ** DoLU **
@@ -123,18 +132,7 @@ static int lusolve(double a[][LUARRAYCOLS],
 */
 void DoLU(void)
 {
-    LUStruct *loclustruct;  /* Local pointer to global data */
-    char *errorcontext;
-    int systemerror;
-    fardouble *a;
-    fardouble *b;
-    fardouble *abase;
-    fardouble *bbase;
-    LUdblptr ptra;
-    int n;
-    int i;
-    ulong accumtime;
-    double iterations;
+    TestControlStruct *loclustruct;  /* Local pointer to global data */
 
     /*
      ** Link to global data
@@ -142,19 +140,48 @@ void DoLU(void)
     loclustruct=&global_lustruct;
 
     /*
-     ** Set error context.
+     ** See if we need to do self adjustment code.
      */
-    errorcontext="FPU:LU";
+    DoLUAdjust(loclustruct);
 
+    /*
+     ** Run the benchmark
+     */
+    run_bench_with_concurrency(loclustruct, LUFunc);
+}
+
+/****************
+** LUDataSetup **
+*****************
+** Setup Data for LU Testing
+*/
+static void LUDataSetup(TestControlStruct *loclustruct, LUData *ludata)
+{
+    LUDataSetup1(ludata);
+    LUDataSetup2(loclustruct, ludata, loclustruct->numarrays);
+}
+
+/*****************
+** LUDataSetup1 **
+******************
+** Setup Data for LU Testing - Phase 1
+*/
+static void LUDataSetup1(LUData *ludata)
+{
+    int n;
+    int systemerror;
+    LUdblptr ptra;
+
+    memset(ludata, 0, sizeof(LUData));
     /*
      ** Our first step is to build a "solvable" problem.  This
      ** will become the "seed" set that all others will be
      ** derived from. (I.E., we'll simply copy these arrays
      ** into the others.
      */
-    a=(fardouble *)AllocateMemory(sizeof(double) * LUARRAYCOLS * LUARRAYROWS,
+    ludata->a=(fardouble *)AllocateMemory(sizeof(double) * LUARRAYCOLS * LUARRAYROWS,
             &systemerror);
-    b=(fardouble *)AllocateMemory(sizeof(double) * LUARRAYROWS,
+    ludata->b=(fardouble *)AllocateMemory(sizeof(double) * LUARRAYROWS,
             &systemerror);
     n=LUARRAYROWS;
 
@@ -163,122 +190,167 @@ void DoLU(void)
      ** algorithm.  This removes the allocation routine from the
      ** timing.
      */
-    LUtempvv=(fardouble *)AllocateMemory(sizeof(double)*LUARRAYROWS,
+    ludata->LUtempvv=(fardouble *)AllocateMemory(sizeof(double)*LUARRAYROWS,
             &systemerror);
 
     /*
      ** Build a problem to be solved.
      */
-    ptra.ptrs.p=a;                  /* Gotta coerce linear array to 2D array */
-    build_problem(*ptra.ptrs.ap,n,b);
+    ptra.ptrs.p=ludata->a;                  /* Gotta coerce linear array to 2D array */
+    build_problem(*ptra.ptrs.ap,n,ludata->b);
+}
+
+/*****************
+** LUDataSetup2 **
+******************
+** Setup Data for LU Testing - Phase 2
+*/
+static void LUDataSetup2(TestControlStruct *loclustruct, LUData *ludata, ushort numarrays)
+{
+    int systemerror;
+
+    memset(ludata, 0, sizeof(LUData));
 
     /*
-     ** Now that we have a problem built, see if we need to do
-     ** auto-adjust.  If so, repeatedly call the DoLUIteration routine,
-     ** increasing the number of solutions per iteration as you go.
+     ** allocate the proper number of arrays and proceed.
      */
+    ludata->abase=(fardouble *)AllocateMemory(sizeof(double) *
+                LUARRAYCOLS*LUARRAYROWS*numarrays,
+                &systemerror);
+    if(systemerror)
+    {
+        ReportError(loclustruct->errorcontext,systemerror);
+        LUDataCleanup(ludata);
+        ErrorExit();
+    }
+
+    ludata->bbase=(fardouble *)AllocateMemory(sizeof(double) *
+                LUARRAYROWS*numarrays,&systemerror);
+    if(systemerror)
+    {
+        ReportError(loclustruct->errorcontext,systemerror);
+        LUDataCleanup(ludata);
+        ErrorExit();
+    }
+}
+
+/******************
+** LUDataCleanup **
+*******************
+** Cleanup Data for LU Testing
+*/
+static void LUDataCleanup(LUData *ludata)
+{
+    int systemerror;
+
+    FreeMemory((farvoid *)ludata->a,&systemerror);
+    FreeMemory((farvoid *)ludata->b,&systemerror);
+    FreeMemory((farvoid *)ludata->LUtempvv,&systemerror);
+
+    if(ludata->abase!=(fardouble *)NULL) FreeMemory((farvoid *)ludata->abase,&systemerror);
+    if(ludata->bbase!=(fardouble *)NULL) FreeMemory((farvoid *)ludata->bbase,&systemerror);
+}
+
+/*******************
+** LUDataCleanup2 **
+********************
+** Cleanup Data for LU Testing - Phase 2
+*/
+static void LUDataCleanup2(LUData *ludata)
+{
+    int systemerror;
+
+    if(ludata->abase!=(fardouble *)NULL) FreeMemory((farvoid *)ludata->abase,&systemerror);
+    if(ludata->bbase!=(fardouble *)NULL) FreeMemory((farvoid *)ludata->bbase,&systemerror);
+    ludata->abase = 0;
+    ludata->bbase = 0;
+}
+
+/***************
+** DoLUAdjust **
+****************
+** Perform self adjust
+*/
+void DoLUAdjust(TestControlStruct *loclustruct)
+{
     if(loclustruct->adjust==0)
     {
+        int i;
+        LUData ludata;
+        StopWatchStruct stopwatch;             /* Stop watch to time the test */
+
+        LUDataSetup1(&ludata);
+
         loclustruct->numarrays=0;
         for(i=1;i<=MAXLUARRAYS;i++)
         {
-            abase=(fardouble *)AllocateMemory(sizeof(double) *
-                    LUARRAYCOLS*LUARRAYROWS*(i+1),&systemerror);
-            if(systemerror)
-            {       ReportError(errorcontext,systemerror);
-                LUFreeMem(a,b,(fardouble *)NULL,(fardouble *)NULL);
-                ErrorExit();
-            }
-            bbase=(fardouble *)AllocateMemory(sizeof(double) *
-                    LUARRAYROWS*(i+1),&systemerror);
-            if(systemerror)
-            {       ReportError(errorcontext,systemerror);
-                LUFreeMem(a,b,abase,(fardouble *)NULL);
-                ErrorExit();
-            }
-            if(DoLUIteration(a,b,abase,bbase,i)>global_min_ticks)
-            {       loclustruct->numarrays=i;
+            LUDataSetup2(loclustruct, &ludata, i+1);
+
+            DoLUIteration(ludata.a,ludata.b,ludata.abase,ludata.bbase,i,ludata.LUtempvv);
+            if(stopwatch.realsecs > 0.001)
+            {
+                loclustruct->numarrays=i;
                 break;
             }
             /*
              ** Not enough arrays...free them all and try again
              */
-            FreeMemory((farvoid *)abase,&systemerror);
-            FreeMemory((farvoid *)bbase,&systemerror);
+            LUDataCleanup2(&ludata);
         }
+
+        LUDataCleanup(&ludata);
+
         /*
          ** Were we able to do it?
          */
         if(loclustruct->numarrays==0)
-        {       printf("FPU:LU -- Array limit reached\n");
-            LUFreeMem(a,b,abase,bbase);
-            ErrorExit();
-        }
-    }
-    else
-    {       /*
-             ** Don't need to adjust -- just allocate the proper
-             ** number of arrays and proceed.
-             */
-        abase=(fardouble *)AllocateMemory(sizeof(double) *
-                LUARRAYCOLS*LUARRAYROWS*loclustruct->numarrays,
-                &systemerror);
-        if(systemerror)
-        {       ReportError(errorcontext,systemerror);
-            LUFreeMem(a,b,(fardouble *)NULL,(fardouble *)NULL);
-            ErrorExit();
-        }
-        bbase=(fardouble *)AllocateMemory(sizeof(double) *
-                LUARRAYROWS*loclustruct->numarrays,&systemerror);
-        if(systemerror)
         {
-            ReportError(errorcontext,systemerror);
-            LUFreeMem(a,b,abase,(fardouble *)NULL);
+            printf("FPU:LU -- Array limit reached\n");
             ErrorExit();
         }
+
+        loclustruct->adjust=1;
     }
+}
+
+/***********
+** LUFunc **
+************
+** Perform the LU decomposition benchmark.
+*/
+void *LUFunc(void *data)
+{
+    TestThreadData *testdata;        /* test data passed from thread func */
+    TestControlStruct *loclustruct;  /* Local pointer to global data */
+    LUData ludata;                   /* lU test data */
+    StopWatchStruct stopwatch;       /* Stop watch to time the test */
+
+    testdata = (TestThreadData *)data;
+    loclustruct = testdata->control;
+
+    LUDataSetup(loclustruct, &ludata);
+
     /*
      ** All's well if we get here.  Do the test.
      */
-    accumtime=0L;
-    iterations=(double)0.0;
+    testdata->result.iterations=(double)0.0;
+    ResetStopWatch(&stopwatch);
 
     do {
-        accumtime+=DoLUIteration(a,b,abase,bbase,
-                loclustruct->numarrays);
-        iterations+=(double)loclustruct->numarrays;
-    } while(TicksToSecs(accumtime)<loclustruct->request_secs);
+        DoLUIteration(ludata.a,ludata.b,ludata.abase,ludata.bbase,
+                loclustruct->numarrays,ludata.LUtempvv);
+        testdata->result.iterations+=(double)loclustruct->numarrays;
+    } while(stopwatch.realsecs<loclustruct->request_secs);
 
     /*
      ** Clean up, calculate results, and go home.  Be sure to
      ** show that we don't have to rerun adjustment code.
      */
-    loclustruct->iterspersec=iterations / TicksToFracSecs(accumtime);
+    LUDataCleanup(&ludata);
 
-    if(loclustruct->adjust==0)
-        loclustruct->adjust=1;
-
-    LUFreeMem(a,b,abase,bbase);
-    return;
-}
-
-/**************
-** LUFreeMem **
-***************
-** Release memory associated with LU benchmark.
-*/
-static void LUFreeMem(fardouble *a, fardouble *b,
-            fardouble *abase,fardouble *bbase)
-{
-    int systemerror;
-
-    FreeMemory((farvoid *)a,&systemerror);
-    FreeMemory((farvoid *)b,&systemerror);
-    FreeMemory((farvoid *)LUtempvv,&systemerror);
-
-    if(abase!=(fardouble *)NULL) FreeMemory((farvoid *)abase,&systemerror);
-    if(bbase!=(fardouble *)NULL) FreeMemory((farvoid *)bbase,&systemerror);
-    return;
+    testdata->result.cpusecs = stopwatch.cpusecs;
+    testdata->result.realsecs = stopwatch.realsecs;
+    return 0;
 }
 
 /******************
@@ -290,7 +362,8 @@ static void LUFreeMem(fardouble *a, fardouble *b,
 */
 static ulong DoLUIteration(fardouble *a,fardouble *b,
         fardouble *abase, fardouble *bbase,
-        ulong numarrays)
+        ulong numarrays,
+        fardouble *LUtempvv)
 {
     fardouble *locabase;
     fardouble *locbbase;
@@ -320,7 +393,7 @@ static ulong DoLUIteration(fardouble *a,fardouble *b,
     {       locabase=abase+i*LUARRAYROWS*LUARRAYCOLS;
         locbbase=bbase+i*LUARRAYROWS;
         ptra.ptrs.p=locabase;
-        lusolve(*ptra.ptrs.ap,LUARRAYROWS,locbbase);
+        lusolve(*ptra.ptrs.ap,LUARRAYROWS,locbbase,LUtempvv);
     }
 
     return(StopStopwatch(elapsed));
@@ -452,7 +525,8 @@ static void build_problem(double a[][LUARRAYCOLS],
 static int ludcmp(double a[][LUARRAYCOLS],
         int n,
         int indx[],
-        int *d)
+        int *d,
+        fardouble *LUtempvv)
 {
 
     double big;     /* Holds largest element value */
@@ -605,7 +679,8 @@ static void lubksb( double a[][LUARRAYCOLS],
 */
 static int lusolve(double a[][LUARRAYCOLS],
         int n,
-        double b[LUARRAYROWS])
+        double b[LUARRAYROWS],
+        fardouble *LUtempvv)
 {
     int indx[LUARRAYROWS];
     int d;
@@ -613,7 +688,7 @@ static int lusolve(double a[][LUARRAYCOLS],
     int i,j;
 #endif
 
-    if(ludcmp(a,n,indx,&d)==0) return(0);
+    if(ludcmp(a,n,indx,&d,LUtempvv)==0) return(0);
 
     /* Matrix not singular -- proceed */
     lubksb(a,n,indx,b);

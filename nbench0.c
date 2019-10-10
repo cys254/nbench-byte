@@ -84,10 +84,10 @@ TestControlStruct global_bitopstruct;         /* For bitfield operations */
 TestControlStruct global_emfloatstruct;       /* For emul. float. point */
 TestControlStruct global_fourierstruct;       /* For fourier test */
 TestControlStruct global_assignstruct;        /* For assignment algorithm */
-TestControlStruct global_ideastruct;           /* For IDEA encryption */
-TestControlStruct global_huffstruct;           /* For Huffman compression */
+TestControlStruct global_ideastruct;          /* For IDEA encryption */
+TestControlStruct global_huffstruct;          /* For Huffman compression */
 NNetStruct global_nnetstruct;           /* For Neural Net */
-LUStruct global_lustruct;               /* For LU decomposition */
+TestControlStruct global_lustruct;            /* For LU decomposition */
 
 
 /*
@@ -207,29 +207,38 @@ int main(int argc, char *argv[])
     set_request_secs();     /* Set all request_secs fields */
     global_numsortstruct.adjust=0;
     global_numsortstruct.arraysize=NUMARRAYSIZE;
+    global_numsortstruct.errorcontext="CPU:Numeric Sort";
 
     global_strsortstruct.adjust=0;
     global_strsortstruct.arraysize=STRINGARRAYSIZE;
+    global_strsortstruct.errorcontext="CPU:String Sort";
 
     global_bitopstruct.adjust=0;
     global_bitopstruct.bitfieldarraysize=BITFARRAYSIZE;
+    global_bitopstruct.errorcontext="CPU:Bitfields";
 
     global_emfloatstruct.adjust=0;
     global_emfloatstruct.arraysize=EMFARRAYSIZE;
+    global_emfloatstruct.errorcontext="CPU:Floating Emulation";
 
     global_fourierstruct.adjust=0;
+    global_fourierstruct.errorcontext="FPU:Transcendental";
 
     global_assignstruct.adjust=0;
+    global_assignstruct.errorcontext="CPU:Assignment";
 
     global_ideastruct.adjust=0;
     global_ideastruct.arraysize=IDEAARRAYSIZE;
+    global_ideastruct.errorcontext="CPU:IDEA";
 
     global_huffstruct.adjust=0;
     global_huffstruct.arraysize=HUFFARRAYSIZE;
+    global_huffstruct.errorcontext="CPU:Huffman";
 
     global_nnetstruct.adjust=0;
 
     global_lustruct.adjust=0;
+    global_lustruct.errorcontext="FPU:LU";
 
     /*
      ** For Macintosh -- read the command line.
@@ -1062,7 +1071,7 @@ static double getscore(int fid)
         case TF_NNET:
             return(global_nnetstruct.iterspersec);
         case TF_LU:
-            return(global_lustruct.iterspersec);
+            return(global_lustruct.realrate);
     }
     return((double)0.0);
 }
@@ -1169,7 +1178,7 @@ static void show_stats (int bid)
             break;
 
         case TF_LU:
-            sprintf(buffer,"  Number of arrays: %lu\n",
+            sprintf(buffer,"  Number of arrays: %u\n",
                     global_lustruct.numarrays);
             output_string(buffer);
             break;

@@ -121,11 +121,6 @@ void DoAssign(void)
     locassignstruct=&global_assignstruct;
 
     /*
-     ** Set the error context string.
-     */
-    locassignstruct->errorcontext="CPU:Assignment";
-
-    /*
      ** See if we need to do self adjustment code.
      */
     DoAssignAdjust(locassignstruct);

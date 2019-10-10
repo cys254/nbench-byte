@@ -101,11 +101,6 @@ void DoNumSort(void)
     numsortstruct=&global_numsortstruct;
 
     /*
-     ** Set the error context string.
-     */
-    numsortstruct->errorcontext="CPU:Numeric Sort";
-
-    /*
      ** See if we need to do self adjustment code.
      */
     DoNumSortAdjust(numsortstruct);
@@ -119,7 +114,6 @@ void DoNumSort(void)
     if (numsort_status==0) printf("Numeric sort: OK\n");
     numsort_status=0;
 #endif
-    return;
 }
 
 void DoNumSortAdjust(TestControlStruct *numsortstruct)

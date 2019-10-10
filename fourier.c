@@ -92,11 +92,6 @@ void DoFourier(void)
     locfourierstruct=&global_fourierstruct;
 
     /*
-     ** Set error context string
-     */
-    locfourierstruct->errorcontext="FPU:Transcendental";
-
-    /*
      ** See if we need to do self-adjustment code.
      */
     DoFourierAdjust(locfourierstruct);
@@ -105,8 +100,6 @@ void DoFourier(void)
      ** Run the benchmark
      */
     run_bench_with_concurrency(locfourierstruct, FourierFunc);
-
-    return;
 }
 
 /********************

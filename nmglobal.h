@@ -575,5 +575,5 @@ extern TestControlStruct global_assignstruct;
 extern TestControlStruct global_ideastruct;
 extern TestControlStruct global_huffstruct;
 extern NNetStruct global_nnetstruct;
-extern LUStruct global_lustruct;
+extern TestControlStruct global_lustruct;
 

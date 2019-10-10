@@ -124,11 +124,6 @@ void DoIDEA(void)
     locideastruct=&global_ideastruct;
 
     /*
-     ** Set error context
-     */
-    locideastruct->errorcontext="CPU:IDEA";
-
-    /*
      ** See if we need to do self adjustment code.
      */
     DoIDEAAdjust(locideastruct);

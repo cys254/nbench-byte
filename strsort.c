@@ -111,11 +111,6 @@ void DoStringSort(void)
     strsortstruct=&global_strsortstruct;
 
     /*
-     ** Set the error context
-     */
-    strsortstruct->errorcontext="CPU:String Sort";
-
-    /*
      ** See if we have to perform self-adjustment code
      */
     DoStringSortAdjust(strsortstruct);
@@ -129,7 +124,6 @@ void DoStringSort(void)
     if (stringsort_status==0) printf("String sort: OK\n");
     stringsort_status=0;
 #endif
-    return;
 }
 
 void DoStringSortAdjust(TestControlStruct *strsortstruct)

@@ -88,11 +88,6 @@ void DoBitops(void)
     locbitopstruct=&global_bitopstruct;
 
     /*
-     ** Set the error context.
-     */
-    locbitopstruct->errorcontext="CPU:Bitfields";
-
-    /*
      ** See if we need to run adjustment code.
      */
     DoBitopsAdjust(locbitopstruct);
@@ -101,8 +96,6 @@ void DoBitops(void)
      ** Run the benchmark
      */
     run_bench_with_concurrency(locbitopstruct, BitopsFunc);
-
-    return;
 }
 
 void DoBitopsAdjust(TestControlStruct *locbitopstruct)

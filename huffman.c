@@ -114,11 +114,6 @@ void DoHuffman(void)
     lochuffstruct=&global_huffstruct;
 
     /*
-     ** Set error context.
-     */
-    lochuffstruct->errorcontext="CPU:Huffman";
-
-    /*
      ** See if we have to perform self-adjustment code
      */
     DoHuffmanAdjust(lochuffstruct);
