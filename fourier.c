@@ -50,6 +50,7 @@
 #include <math.h>
 #include "nmglobal.h"
 #include "sysspec.h"
+#include "misc.h"
 
 /*************************
 ** FOURIER COEFFICIENTS **
@@ -57,9 +58,13 @@
 
 void DoFourier(void);
 
-static ulong DoFPUTransIteration(fardouble *abase,
+void DoFourierAdjust(TestControlStruct *locfourierstruct);
+void *FourierFunc(void *data);
+
+static void DoFPUTransIteration(fardouble *abase,
 		fardouble *bbase,
-		ulong arraysize);
+		ulong arraysize,
+                StopWatchStruct *stopwatch);
 static double TrapezoidIntegrate(double x0,
 		double x1,
 		int nsteps,
@@ -79,13 +84,7 @@ static double thefunction(double x,
 */
 void DoFourier(void)
 {
-    FourierStruct *locfourierstruct;        /* Local fourier struct */
-    fardouble *abase;               /* Base of A[] coefficients array */
-    fardouble *bbase;               /* Base of B[] coefficients array */
-    unsigned long accumtime;        /* Accumulated time in ticks */
-    double iterations;              /* # of iterations */
-    char *errorcontext;             /* Error context string pointer */
-    int systemerror;                /* For error code */
+    TestControlStruct *locfourierstruct;        /* Local fourier struct */
 
     /*
      ** Link to global structure
@@ -95,13 +94,41 @@ void DoFourier(void)
     /*
      ** Set error context string
      */
-    errorcontext="FPU:Transcendental";
+    locfourierstruct->errorcontext="FPU:Transcendental";
 
+    /*
+     ** See if we need to do self-adjustment code.
+     */
+    DoFourierAdjust(locfourierstruct);
+
+    /*
+     ** Run the benchmark
+     */
+    run_bench_with_concurrency(locfourierstruct, FourierFunc);
+
+    return;
+}
+
+/********************
+** DoFourierAdjust **
+*********************
+** Perform the transcendental/trigonometric portion of the
+** benchmark.  This benchmark calculates the first n
+** fourier coefficients of the function (x+1)^x defined
+** on the interval 0,2.
+*/
+void DoFourierAdjust(TestControlStruct *locfourierstruct)
+{
     /*
      ** See if we need to do self-adjustment code.
      */
     if(locfourierstruct->adjust==0)
     {
+        fardouble *abase;               /* Base of A[] coefficients array */
+        fardouble *bbase;               /* Base of B[] coefficients array */
+        int systemerror;                /* For error code */
+        StopWatchStruct stopwatch;
+
         locfourierstruct->arraysize=100L;       /* Start at 100 elements */
         while(1)
         {
@@ -109,14 +136,16 @@ void DoFourier(void)
             abase=(fardouble *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
                     &systemerror);
             if(systemerror)
-            {       ReportError(errorcontext,systemerror);
+            {
+                ReportError(locfourierstruct->errorcontext,systemerror);
                 ErrorExit();
             }
 
             bbase=(fardouble *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
                     &systemerror);
             if(systemerror)
-            {       ReportError(errorcontext,systemerror);
+            {
+                ReportError(locfourierstruct->errorcontext,systemerror);
                 FreeMemory((void *)abase,&systemerror);
                 ErrorExit();
             }
@@ -125,65 +154,89 @@ void DoFourier(void)
              ** less than or equal to the permitted minimum, re-allocate
              ** larger arrays and try again.
              */
-            if(DoFPUTransIteration(abase,bbase,
-                        locfourierstruct->arraysize)>global_min_ticks)
+            ResetStopWatch(&stopwatch);
+            DoFPUTransIteration(abase,bbase,
+                        locfourierstruct->arraysize,&stopwatch);
+
+            FreeMemory((farvoid *)abase,&systemerror);
+            FreeMemory((farvoid *)bbase,&systemerror);
+
+            if(stopwatch.realsecs>0.001)
                 break;          /* We're ok...exit */
 
             /*
              ** Make bigger arrays and try again.
              */
-            FreeMemory((farvoid *)abase,&systemerror);
-            FreeMemory((farvoid *)bbase,&systemerror);
             locfourierstruct->arraysize+=50L;
         }
+        locfourierstruct->adjust=1;
     }
-    else
-    {       /*
-             ** Don't need self-adjustment.  Just allocate the
-             ** arrays, and go.
-             */
-        abase=(fardouble *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
-                &systemerror);
-        if(systemerror)
-        {       ReportError(errorcontext,systemerror);
-            ErrorExit();
-        }
+}
 
-        bbase=(fardouble *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
+/****************
+** FourierFunc **
+*****************
+** Perform the transcendental/trigonometric portion of the
+** benchmark.  This benchmark calculates the first n
+** fourier coefficients of the function (x+1)^x defined
+** on the interval 0,2.
+*/
+void *FourierFunc(void *data)
+{
+    TestThreadData *testdata;       /* test data passed from thread func */
+    fardouble *abase;               /* Base of A[] coefficients array */
+    fardouble *bbase;               /* Base of B[] coefficients array */
+    StopWatchStruct stopwatch;      /* Stop watch to time the test */
+    int systemerror;                /* For error code */
+    TestControlStruct *locfourierstruct;        /* Local fourier struct */
+
+    testdata = (TestThreadData*)data;
+
+    locfourierstruct = testdata->control;
+
+    /*
+     ** Allocate the arrays and go.
+     */
+    abase=(fardouble *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
                 &systemerror);
-        if(systemerror)
-        {       ReportError(errorcontext,systemerror);
-            FreeMemory((void *)abase,&systemerror);
-            ErrorExit();
-        }
+    if(systemerror)
+    {
+        ReportError(locfourierstruct->errorcontext,systemerror);
+        ErrorExit();
     }
+
+    bbase=(fardouble *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
+                &systemerror);
+    if(systemerror)
+    {
+        ReportError(locfourierstruct->errorcontext,systemerror);
+        FreeMemory((void *)abase,&systemerror);
+        ErrorExit();
+    }
+
     /*
      ** All's well if we get here.  Repeatedly perform integration
      ** tests until the accumulated time is greater than the
      ** # of seconds requested.
      */
-    accumtime=0L;
-    iterations=(double)0.0;
+    ResetStopWatch(&stopwatch);
     do {
-        accumtime+=DoFPUTransIteration(abase,bbase,locfourierstruct->arraysize);
-        iterations+=(double)locfourierstruct->arraysize*(double)2.0-(double)1.0;
-    } while(TicksToSecs(accumtime)<locfourierstruct->request_secs);
-
+        DoFPUTransIteration(abase,bbase,locfourierstruct->arraysize,&stopwatch);
+        testdata->result.iterations+=(double)locfourierstruct->arraysize*(double)2.0-(double)1.0;
+    } while(stopwatch.realsecs<locfourierstruct->request_secs);
 
     /*
      ** Clean up, calculate results, and go home.
-     ** Also set adjustment flag to indicate no adjust code needed.
      */
     FreeMemory((farvoid *)abase,&systemerror);
     FreeMemory((farvoid *)bbase,&systemerror);
 
-    locfourierstruct->fflops=iterations/(double)TicksToFracSecs(accumtime);
+    testdata->result.cpusecs = stopwatch.cpusecs;
+    testdata->result.realsecs = stopwatch.realsecs;
 
-    if(locfourierstruct->adjust==0)
-        locfourierstruct->adjust=1;
-
-    return;
+    return 0;
 }
+
 
 /************************
 ** DoFPUTransIteration **
@@ -195,18 +248,18 @@ void DoFourier(void)
 ** NOTE: The # of integration steps is fixed at
 ** 200.
 */
-static ulong DoFPUTransIteration(fardouble *abase,      /* A coeffs. */
+static void DoFPUTransIteration(fardouble *abase,      /* A coeffs. */
             fardouble *bbase,               /* B coeffs. */
-            ulong arraysize)                /* # of coeffs */
+            ulong arraysize,                /* # of coeffs */
+            StopWatchStruct *stopwatch)
 {
     double omega;           /* Fundamental frequency */
     unsigned long i;        /* Index */
-    unsigned long elapsed;  /* Elapsed time */
 
     /*
      ** Start the stopwatch
      */
-    elapsed=StartStopwatch();
+    StartStopwatch(stopwatch);
 
     /*
      ** Calculate the fourier series.  Begin by
@@ -263,7 +316,7 @@ static ulong DoFPUTransIteration(fardouble *abase,      /* A coeffs. */
     /*
      ** All done, stop the stopwatch
      */
-    return(StopStopwatch(elapsed));
+    StopStopWatch(stopwatch);
 }
 
 /***********************

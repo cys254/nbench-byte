@@ -82,7 +82,7 @@ TestControlStruct global_numsortstruct;       /* For numeric sort */
 TestControlStruct global_strsortstruct;       /* For string sort */
 TestControlStruct global_bitopstruct;         /* For bitfield operations */
 TestControlStruct global_emfloatstruct;       /* For emul. float. point */
-FourierStruct global_fourierstruct;     /* For fourier test */
+TestControlStruct global_fourierstruct;       /* For fourier test */
 AssignStruct global_assignstruct;       /* For assignment algorithm */
 IDEAStruct global_ideastruct;           /* For IDEA encryption */
 HuffStruct global_huffstruct;           /* For Huffman compression */
@@ -1052,7 +1052,7 @@ static double getscore(int fid)
         case TF_FPEMU:
             return(global_emfloatstruct.realrate);
         case TF_FFPU:
-            return(global_fourierstruct.fflops);
+            return(global_fourierstruct.realrate);
         case TF_ASSIGN:
             return(global_assignstruct.iterspersec);
         case TF_IDEA:

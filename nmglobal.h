@@ -211,7 +211,7 @@
 /*
 ** Number of available logical cpus, used for multithread benchmark
 */
-#define LOGICAL_CPUS 8
+#define LOGICAL_CPUS 2
 
 /*
 ** TYPEDEFS
@@ -570,7 +570,7 @@ extern TestControlStruct global_numsortstruct;
 extern TestControlStruct global_strsortstruct;
 extern TestControlStruct global_bitopstruct;
 extern TestControlStruct global_emfloatstruct;
-extern FourierStruct global_fourierstruct;
+extern TestControlStruct global_fourierstruct;
 extern AssignStruct global_assignstruct;
 extern IDEAStruct global_ideastruct;
 extern HuffStruct global_huffstruct;
