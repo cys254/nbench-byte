@@ -95,52 +95,55 @@
 #define STOP 0.1                /* when worst_error less than STOP, training is done */
 
 /*
+** GLOBALS
+*/
+typedef struct {
+    double  mid_wts[MID_SIZE][IN_SIZE];     /* middle layer weights */
+    double  out_wts[OUT_SIZE][MID_SIZE];    /* output layer weights */
+    double  mid_out[MID_SIZE];              /* middle layer output */
+    double  out_out[OUT_SIZE];              /* output layer output */
+    double  mid_error[MID_SIZE];            /* middle layer errors */
+    double  out_error[OUT_SIZE];            /* output layer errors */
+    double  mid_wt_change[MID_SIZE][IN_SIZE]; /* storage for last wt change */
+    double  out_wt_change[OUT_SIZE][MID_SIZE]; /* storage for last wt change */
+    double  in_pats[MAXPATS][IN_SIZE];      /* input patterns */
+    double  out_pats[MAXPATS][OUT_SIZE];    /* desired output patterns */
+    double  tot_out_error[MAXPATS];         /* measure of whether net is done */
+    double  out_wt_cum_change[OUT_SIZE][MID_SIZE]; /* accumulated wt changes */
+    double  mid_wt_cum_change[MID_SIZE][IN_SIZE];  /* accumulated wt changes */
+
+    double  worst_error; /* worst error each pass through the data */
+    double  average_error; /* average error each pass through the data */
+    double  avg_out_error[MAXPATS]; /* average error each pattern */
+
+    int iteration_count;    /* number of passes thru network so far */
+    int numpats;            /* number of patterns in data file */
+    int numpasses;          /* number of training passes through data file */
+    int learned;            /* flag--if TRUE, network has learned all patterns */
+} NNetData;
+
+/*
 ** PROTOTYPES
 */
 void DoNNET(void);
-static ulong DoNNetIteration(ulong nloops);
-static void do_mid_forward(int patt);
-static void do_out_forward();
+void *NNetFunc(void *data);
+static void DoNNetIteration(NNetData *nnetdata, ulong nloops, StopWatchStruct *stopwatch);
+static void do_mid_forward(NNetData *nnetdata, int patt);
+static void do_out_forward(NNetData *nnetdata);
 void display_output(int patt);
-static void do_forward_pass(int patt);
-static void do_out_error(int patt);
-static void worst_pass_error();
-static void do_mid_error();
-static void adjust_out_wts();
-static void adjust_mid_wts();
-static void do_back_pass(int patt);
-static void move_wt_changes();
-static int check_out_error();
-static void zero_changes();
-static void randomize_wts();
-static int read_data_file();
+static void do_forward_pass(NNetData *nnetdata, int patt);
+static void do_out_error(NNetData *nnetdata, int patt);
+static void worst_pass_error(NNetData *nnetdata);
+static void do_mid_error(NNetData *nnetdata);
+static void adjust_out_wts(NNetData *nnetdata);
+static void adjust_mid_wts(NNetData *nnetdata, int patt);
+static void do_back_pass(NNetData *nnetdata, int patt);
+static void move_wt_changes(NNetData *nnetdata);
+static int check_out_error(NNetData *nnetdata);
+static void zero_changes(NNetData *nnetdata);
+static void randomize_wts(NNetData *nnetdata);
+static int read_data_file(NNetData *nnetdata);
 /* static int initialize_net(); */
-
-/*
-** GLOBALS
-*/
-double  mid_wts[MID_SIZE][IN_SIZE];     /* middle layer weights */
-double  out_wts[OUT_SIZE][MID_SIZE];    /* output layer weights */
-double  mid_out[MID_SIZE];              /* middle layer output */
-double  out_out[OUT_SIZE];              /* output layer output */
-double  mid_error[MID_SIZE];            /* middle layer errors */
-double  out_error[OUT_SIZE];            /* output layer errors */
-double  mid_wt_change[MID_SIZE][IN_SIZE]; /* storage for last wt change */
-double  out_wt_change[OUT_SIZE][MID_SIZE]; /* storage for last wt change */
-double  in_pats[MAXPATS][IN_SIZE];      /* input patterns */
-double  out_pats[MAXPATS][OUT_SIZE];    /* desired output patterns */
-double  tot_out_error[MAXPATS];         /* measure of whether net is done */
-double  out_wt_cum_change[OUT_SIZE][MID_SIZE]; /* accumulated wt changes */
-double  mid_wt_cum_change[MID_SIZE][IN_SIZE];  /* accumulated wt changes */
-
-double  worst_error; /* worst error each pass through the data */
-double  average_error; /* average error each pass through the data */
-double  avg_out_error[MAXPATS]; /* average error each pattern */
-
-int iteration_count;    /* number of passes thru network so far */
-int numpats;            /* number of patterns in data file */
-int numpasses;          /* number of training passes through data file */
-int learned;            /* flag--if TRUE, network has learned all patterns */
 
 /*
 ** The Neural Net test requires an input data file.
@@ -159,20 +162,16 @@ char *inpath="NNET.DAT";
 */
 void DoNNET(void)
 {
-    NNetStruct *locnnetstruct;      /* Local ptr to global data */
-    char *errorcontext;
-    ulong accumtime;
-    double iterations;
+    TestControlStruct *locnnetstruct;      /* Local ptr to global data */
+    StopWatchStruct stopwatch;             /* Stop watch to time the test */
+    NNetData nnetdata;                     /* NNet test data */
 
     /*
      ** Link to global data
      */
     locnnetstruct=&global_nnetstruct;
 
-    /*
-     ** Set error context
-     */
-    errorcontext="CPU:NNET";
+    memset(&nnetdata, 0, sizeof(NNetData));
 
     /*
      ** Init random number generator.
@@ -182,7 +181,6 @@ void DoNNET(void)
      **  to initialize the net.  Results are sensitive to
      **  the initial neural net state.
      */
-    /* randnum(3L); */
     randnum((int32)3);
 
     /*
@@ -190,9 +188,8 @@ void DoNNET(void)
      ** only once here at the beginning.  These values don't
      ** change once loaded.
      */
-    if(read_data_file()!=0)
+    if(read_data_file(&nnetdata)!=0)
         ErrorExit();
-
 
     /*
      ** See if we need to perform self adjustment loop.
@@ -207,37 +204,73 @@ void DoNNET(void)
         for(locnnetstruct->loops=1L;
                 locnnetstruct->loops<MAXNNETLOOPS;
                 locnnetstruct->loops++)
-        {     /*randnum(3L); */
+        {
             randnum((int32)3);
-            if(DoNNetIteration(locnnetstruct->loops)
-                    >global_min_ticks) break;
+            ResetStopWatch(&stopwatch);
+            DoNNetIteration(&nnetdata, locnnetstruct->loops, &stopwatch);
+             
+            if(stopwatch.realsecs>global_min_ticks) break;
         }
     }
 
     /*
      ** All's well if we get here.  Do the test.
      */
-    accumtime=0L;
-    iterations=(double)0.0;
+    run_bench_with_concurrency(locnnetstruct, NNetFunc);
+}
 
-    do {
-        /* randnum(3L); */    /* Gotta do this for Neural Net */
-        randnum((int32)3);    /* Gotta do this for Neural Net */
-        accumtime+=DoNNetIteration(locnnetstruct->loops);
-        iterations+=(double)locnnetstruct->loops;
-    } while(TicksToSecs(accumtime)<locnnetstruct->request_secs);
+/***********
+** NNetFunc **
+************
+** Perform the neural net benchmark.
+** Note that this benchmark is one of the few that
+** requires an input file.  That file is "NNET.DAT" and
+** should be on the local directory (from which the
+** benchmark program in launched).
+*/
+void *NNetFunc(void *data)
+{
+    TestThreadData *testdata;              /* test data passed from thread func */
+    TestControlStruct *locnnetstruct;      /* Local ptr to global data */
+    StopWatchStruct stopwatch;             /* Stop watch to time the test */
+    NNetData nnetdata;                     /* NNet test data */
+
+    testdata = (TestThreadData*)data;
+    locnnetstruct = testdata->control;
+
+    memset(&nnetdata, 0, sizeof(NNetData));
 
     /*
-     ** Clean up, calculate results, and go home.  Be sure to
-     ** show that we don't have to rerun adjustment code.
+     ** Init random number generator.
+     ** NOTE: It is important that the random number generator
+     **  be re-initialized for every pass through this test.
+     **  The NNET algorithm uses the random number generator
+     **  to initialize the net.  Results are sensitive to
+     **  the initial neural net state.
      */
-    locnnetstruct->iterspersec=iterations / TicksToFracSecs(accumtime);
+    randnum((int32)3);
 
-    if(locnnetstruct->adjust==0)
-        locnnetstruct->adjust=1;
+    /*
+     ** Read in the input and output patterns.  We'll do this
+     ** only once here at the beginning.  These values don't
+     ** change once loaded.
+     */
+    if(read_data_file(&nnetdata)!=0)
+        ErrorExit();
 
+    /*
+     ** All's well if we get here.  Do the test.
+     */
+    testdata->result.iterations=(double)0.0;
+    ResetStopWatch(&stopwatch);
 
-    return;
+    do {
+        randnum((int32)3);    /* Gotta do this for Neural Net */
+        DoNNetIteration(&nnetdata, locnnetstruct->loops, &stopwatch);
+        testdata->result.iterations+=(double)locnnetstruct->loops;
+    } while(stopwatch.realsecs<locnnetstruct->request_secs);
+
+    return 0;
 }
 
 /********************
@@ -246,9 +279,8 @@ void DoNNET(void)
 ** Do a single iteration of the neural net benchmark.
 ** By iteration, we mean a "learning" pass.
 */
-static ulong DoNNetIteration(ulong nloops)
+static void DoNNetIteration(NNetData *nnetdata, ulong nloops, StopWatchStruct *stopwatch)
 {
-    ulong elapsed;          /* Elapsed time */
     int patt;
 
     /*
@@ -258,32 +290,32 @@ static ulong DoNNetIteration(ulong nloops)
      ** since we don't have to stop and start the clock for
      ** each iteration.
      */
-    elapsed=StartStopwatch();
+    StartStopWatch(stopwatch);
     while(nloops--)
     {
-        randomize_wts();
-        zero_changes();
-        iteration_count=1;
-        learned = F;
-        numpasses = 0;
-        while (learned == F)
+        randomize_wts(nnetdata);
+        zero_changes(nnetdata);
+        nnetdata->iteration_count=1;
+        nnetdata->learned = F;
+        nnetdata->numpasses = 0;
+        while (nnetdata->learned == F)
         {
-            for (patt=0; patt<numpats; patt++)
+            for (patt=0; patt<nnetdata->numpats; patt++)
             {
-                worst_error = 0.0;      /* reset this every pass through data */
-                move_wt_changes();      /* move last pass's wt changes to momentum array */
-                do_forward_pass(patt);
-                do_back_pass(patt);
-                iteration_count++;
+                nnetdata->worst_error = 0.0;      /* reset this every pass through data */
+                move_wt_changes(nnetdata);      /* move last pass's wt changes to momentum array */
+                do_forward_pass(nnetdata, patt);
+                do_back_pass(nnetdata, patt);
+                nnetdata->iteration_count++;
             }
-            numpasses ++;
-            learned = check_out_error();
+            nnetdata->numpasses ++;
+            nnetdata->learned = check_out_error(nnetdata);
         }
 #ifdef DEBUG
         printf("Learned in %d passes\n",numpasses);
 #endif
     }
-    return(StopStopwatch(elapsed));
+    StopStopWatch(stopwatch);
 }
 
 /*************************
@@ -294,7 +326,7 @@ static ulong DoNNetIteration(ulong nloops)
 ** sum of the inputs from the input pattern, with sigmoid
 ** function applied to the inputs.
 **/
-static void  do_mid_forward(int patt)
+static void  do_mid_forward(NNetData *nnetdata, int patt)
 {
     double  sum;
     int     neurode, i;
@@ -304,13 +336,13 @@ static void  do_mid_forward(int patt)
         sum = 0.0;
         for (i=0; i<IN_SIZE; i++)
         {       /* compute weighted sum of input signals */
-            sum += mid_wts[neurode][i]*in_pats[patt][i];
+            sum += nnetdata->mid_wts[neurode][i]*nnetdata->in_pats[patt][i];
         }
         /*
          ** apply sigmoid function f(x) = 1/(1+exp(-x)) to weighted sum
          */
         sum = 1.0/(1.0+exp(-sum));
-        mid_out[neurode] = sum;
+        nnetdata->mid_out[neurode] = sum;
     }
     return;
 }
@@ -323,7 +355,7 @@ static void  do_mid_forward(int patt)
 ** the inputs (outputs from middle layer), modified by the
 ** sigmoid function.
 **/
-static void  do_out_forward()
+static void  do_out_forward(NNetData *nnetdata)
 {
     double sum;
     int neurode, i;
@@ -336,13 +368,13 @@ static void  do_out_forward()
                  ** compute weighted sum of input signals
                  ** from middle layer
                  */
-            sum += out_wts[neurode][i]*mid_out[i];
+            sum += nnetdata->out_wts[neurode][i]*nnetdata->mid_out[i];
         }
         /*
          ** Apply f(x) = 1/(1+exp(-x)) to weighted input
          */
         sum = 1.0/(1.0+exp(-sum));
-        out_out[neurode] = sum;
+        nnetdata->out_out[neurode] = sum;
     }
     return;
 }
@@ -389,10 +421,10 @@ return;
 ** NOTE: I have disabled the call to display_output() in
 **  the benchmark version -- RG.
 **/
-static void  do_forward_pass(int patt)
+static void  do_forward_pass(NNetData *nnetdata, int patt)
 {
-    do_mid_forward(patt);   /* process forward pass, middle layer */
-    do_out_forward();       /* process forward pass, output layer */
+    do_mid_forward(nnetdata, patt);   /* process forward pass, middle layer */
+    do_out_forward(nnetdata);         /* process forward pass, output layer */
     /* display_output(patt);        ** display results of forward pass */
     return;
 }
@@ -403,7 +435,7 @@ static void  do_forward_pass(int patt)
 ** Compute the error for the output layer neurodes.
 ** This is simply Desired - Actual.
 **/
-static void do_out_error(int patt)
+static void do_out_error(NNetData *nnetdata, int patt)
 {
 int neurode;
 double error,tot_error, sum;
@@ -412,13 +444,13 @@ tot_error = 0.0;
 sum = 0.0;
 for (neurode=0; neurode<OUT_SIZE; neurode++)
 {
-    out_error[neurode] = out_pats[patt][neurode] - out_out[neurode];
+    nnetdata->out_error[neurode] = nnetdata->out_pats[patt][neurode] - nnetdata->out_out[neurode];
     /*
     ** while we're here, also compute magnitude
     ** of total error and worst error in this pass.
     ** We use these to decide if we are done yet.
     */
-    error = out_error[neurode];
+    error = nnetdata->out_error[neurode];
     if (error <0.0)
     {
         sum += -error;
@@ -432,8 +464,8 @@ for (neurode=0; neurode<OUT_SIZE; neurode++)
             tot_error = error; /* worst error this pattern */
     }
 }
-avg_out_error[patt] = sum/OUT_SIZE;
-tot_out_error[patt] = tot_error;
+nnetdata->avg_out_error[patt] = sum/OUT_SIZE;
+nnetdata->tot_out_error[patt] = tot_error;
 return;
 }
 
@@ -442,7 +474,7 @@ return;
 ************************
 ** Find the worst and average error in the pass and save it
 **/
-static void  worst_pass_error()
+static void  worst_pass_error(NNetData *nnetdata)
 {
     double error,sum;
 
@@ -450,13 +482,13 @@ static void  worst_pass_error()
 
     error = 0.0;
     sum = 0.0;
-    for (i=0; i<numpats; i++)
+    for (i=0; i<nnetdata->numpats; i++)
     {
-        if (tot_out_error[i] > error) error = tot_out_error[i];
-        sum += avg_out_error[i];
+        if (nnetdata->tot_out_error[i] > error) error = nnetdata->tot_out_error[i];
+        sum += nnetdata->avg_out_error[i];
     }
-    worst_error = error;
-    average_error = sum/numpats;
+    nnetdata->worst_error = error;
+    nnetdata->average_error = sum/nnetdata->numpats;
     return;
 }
 
@@ -470,7 +502,7 @@ static void  worst_pass_error()
 ** Recall that f(x) is merely the output of the middle
 ** layer neurode on the forward pass.
 **/
-static void do_mid_error()
+static void do_mid_error(NNetData *nnetdata)
 {
     double sum;
     int neurode, i;
@@ -479,14 +511,14 @@ static void do_mid_error()
     {
         sum = 0.0;
         for (i=0; i<OUT_SIZE; i++)
-            sum += out_wts[i][neurode]*out_error[i];
+            sum += nnetdata->out_wts[i][neurode]*nnetdata->out_error[i];
 
         /*
          ** apply the derivative of the sigmoid here
          ** Because of the choice of sigmoid f(I), the derivative
          ** of the sigmoid is f'(I) = f(I)(1 - f(I))
          */
-        mid_error[neurode] = mid_out[neurode]*(1-mid_out[neurode])*sum;
+        nnetdata->mid_error[neurode] = nnetdata->mid_out[neurode]*(1-nnetdata->mid_out[neurode])*sum;
     }
     return;
 }
@@ -499,7 +531,7 @@ static void do_mid_error()
 ** the middle layer.
 ** Use the Delta Rule with momentum term to adjust the weights.
 **/
-static void adjust_out_wts()
+static void adjust_out_wts(NNetData *nnetdata)
 {
     int weight, neurode;
     double learn,delta,alph;
@@ -511,14 +543,14 @@ static void adjust_out_wts()
         for (weight=0; weight<MID_SIZE; weight++)
         {
             /* standard delta rule */
-            delta = learn * out_error[neurode] * mid_out[weight];
+            delta = learn * nnetdata->out_error[neurode] * nnetdata->mid_out[weight];
 
             /* now the momentum term */
-            delta += alph * out_wt_change[neurode][weight];
-            out_wts[neurode][weight] += delta;
+            delta += alph * nnetdata->out_wt_change[neurode][weight];
+            nnetdata->out_wts[neurode][weight] += delta;
 
             /* keep track of this pass's cum wt changes for next pass's momentum */
-            out_wt_cum_change[neurode][weight] += delta;
+            nnetdata->out_wt_cum_change[neurode][weight] += delta;
         }
     }
     return;
@@ -531,7 +563,7 @@ static void adjust_out_wts()
 ** errors.
 ** We use the Generalized Delta Rule with momentum term
 **/
-static void adjust_mid_wts(int patt)
+static void adjust_mid_wts(NNetData *nnetdata, int patt)
 {
     int weight, neurode;
     double learn,alph,delta;
@@ -543,14 +575,14 @@ static void adjust_mid_wts(int patt)
         for (weight=0; weight<IN_SIZE; weight++)
         {
             /* first the basic delta rule */
-            delta = learn * mid_error[neurode] * in_pats[patt][weight];
+            delta = learn * nnetdata->mid_error[neurode] * nnetdata->in_pats[patt][weight];
 
             /* with the momentum term */
-            delta += alph * mid_wt_change[neurode][weight];
-            mid_wts[neurode][weight] += delta;
+            delta += alph * nnetdata->mid_wt_change[neurode][weight];
+            nnetdata->mid_wts[neurode][weight] += delta;
 
             /* keep track of this pass's cum wt changes for next pass's momentum */
-            mid_wt_cum_change[neurode][weight] += delta;
+            nnetdata->mid_wt_cum_change[neurode][weight] += delta;
         }
     }
     return;
@@ -561,13 +593,13 @@ static void adjust_mid_wts(int patt)
 ********************
 ** Process the backward propagation of error through network.
 **/
-void  do_back_pass(int patt)
+void  do_back_pass(NNetData *nnetdata, int patt)
 {
 
-    do_out_error(patt);
-    do_mid_error();
-    adjust_out_wts();
-    adjust_mid_wts(patt);
+    do_out_error(nnetdata, patt);
+    do_mid_error(nnetdata);
+    adjust_out_wts(nnetdata);
+    adjust_mid_wts(nnetdata, patt);
 
     return;
 }
@@ -580,25 +612,25 @@ void  do_back_pass(int patt)
 ** array for use by the momentum term in this pass. Also zero out
 ** the accumulating arrays after the move.
 **/
-static void move_wt_changes()
+static void move_wt_changes(NNetData *nnetdata)
 {
     int i,j;
 
     for (i = 0; i<MID_SIZE; i++)
         for (j = 0; j<IN_SIZE; j++)
         {
-            mid_wt_change[i][j] = mid_wt_cum_change[i][j];
+            nnetdata->mid_wt_change[i][j] = nnetdata->mid_wt_cum_change[i][j];
             /*
              ** Zero it out for next pass accumulation.
              */
-            mid_wt_cum_change[i][j] = 0.0;
+            nnetdata->mid_wt_cum_change[i][j] = 0.0;
         }
 
     for (i = 0; i<OUT_SIZE; i++)
         for (j=0; j<MID_SIZE; j++)
         {
-            out_wt_change[i][j] = out_wt_cum_change[i][j];
-            out_wt_cum_change[i][j] = 0.0;
+            nnetdata->out_wt_change[i][j] = nnetdata->out_wt_cum_change[i][j];
+            nnetdata->out_wt_cum_change[i][j] = 0.0;
         }
 
     return;
@@ -613,20 +645,20 @@ static void move_wt_changes()
 ** is simply an arbitrary measure of how well the network
 ** has learned -- many other standards are possible.
 **/
-static int check_out_error()
+static int check_out_error(NNetData *nnetdata)
 {
     int result,i,error;
 
     result  = T;
     error   = F;
-    worst_pass_error();     /* identify the worst error in this pass */
+    worst_pass_error(nnetdata);     /* identify the worst error in this pass */
 
     /*
 #ifdef DEBUG
 printf("\n Iteration # %d",iteration_count);
 #endif
      */
-    for (i=0; i<numpats; i++)
+    for (i=0; i<nnetdata->numpats; i++)
     {
         /*      printf("\n Error pattern %d:   Worst: %8.3f; Average: %8.3f",
                 i+1,tot_out_error[i], avg_out_error[i]);
@@ -635,8 +667,8 @@ printf("\n Iteration # %d",iteration_count);
                 i+1,tot_out_error[i]);
          */
 
-        if (worst_error >= STOP) result = F;
-        if (tot_out_error[i] >= 16.0) error = T;
+        if (nnetdata->worst_error >= STOP) result = F;
+        if (nnetdata->tot_out_error[i] >= 16.0) error = T;
     }
 
     if (error == T) result = ERR;
@@ -660,7 +692,7 @@ printf("\n Iteration # %d",iteration_count);
 ********************
 ** Zero out all the wt change arrays
 **/
-static void zero_changes()
+static void zero_changes(NNetData *nnetdata)
 {
     int i,j;
 
@@ -668,8 +700,8 @@ static void zero_changes()
     {
         for (j=0; j<IN_SIZE; j++)
         {
-            mid_wt_change[i][j] = 0.0;
-            mid_wt_cum_change[i][j] = 0.0;
+            nnetdata->mid_wt_change[i][j] = 0.0;
+            nnetdata->mid_wt_cum_change[i][j] = 0.0;
         }
     }
 
@@ -677,8 +709,8 @@ static void zero_changes()
     {
         for (j=0; j<MID_SIZE; j++)
         {
-            out_wt_change[i][j] = 0.0;
-            out_wt_cum_change[i][j] = 0.0;
+            nnetdata->out_wt_change[i][j] = 0.0;
+            nnetdata->out_wt_cum_change[i][j] = 0.0;
         }
     }
     return;
@@ -695,7 +727,7 @@ static void zero_changes()
 ** NOTE: Had to make alterations to how the random numbers were
 ** created.  -- RG.
 **/
-static void randomize_wts()
+static void randomize_wts(NNetData *nnetdata)
 {
     int neurode,i;
     double value;
@@ -715,7 +747,7 @@ static void randomize_wts()
             /* value=(double)abs_randwc(100000L); */
             value=(double)abs_randwc((int32)100000);
             value=value/(double)100000.0 - (double) 0.5;
-            mid_wts[neurode][i] = value/2;
+            nnetdata->mid_wts[neurode][i] = value/2;
         }
     }
     for (neurode=0; neurode<OUT_SIZE; neurode++)
@@ -725,7 +757,7 @@ static void randomize_wts()
             /* value=(double)abs_randwc(100000L); */
             value=(double)abs_randwc((int32)100000);
             value=value/(double)10000.0 - (double) 0.5;
-            out_wts[neurode][i] = value/2;
+            nnetdata->out_wts[neurode][i] = value/2;
         }
     }
 
@@ -774,7 +806,7 @@ static void randomize_wts()
 **
 ** Returns -1 if any file error occurred, otherwise 0.
 **/
-static int read_data_file()
+static int read_data_file(NNetData *nnetdata)
 {
     FILE *infile;
 
@@ -797,16 +829,16 @@ static int read_data_file()
         printf("\n CPU:NNET -- Should read 3 items in line one; did read %d",vals_read);
         return -1;
     }
-    vals_read=fscanf(infile,"%d",&numpats);
+    vals_read=fscanf(infile,"%d",&nnetdata->numpats);
     if (vals_read !=1)
     {
         printf("\n CPU:NNET -- Should read 1 item in line 2; did read %d",vals_read);
         return -1;
     }
-    if (numpats > MAXPATS)
-        numpats = MAXPATS;
+    if (nnetdata->numpats > MAXPATS)
+        nnetdata->numpats = MAXPATS;
 
-    for (patt=0; patt<numpats; patt++)
+    for (patt=0; patt<nnetdata->numpats; patt++)
     {
         element = 0;
         for (row = 0; row<yinsize; row++)
@@ -820,31 +852,31 @@ static int read_data_file()
             }
             element=row*xinsize;
 
-            in_pats[patt][element] = (double) val1; element++;
-            in_pats[patt][element] = (double) val2; element++;
-            in_pats[patt][element] = (double) val3; element++;
-            in_pats[patt][element] = (double) val4; element++;
-            in_pats[patt][element] = (double) val5; element++;
+            nnetdata->in_pats[patt][element] = (double) val1; element++;
+            nnetdata->in_pats[patt][element] = (double) val2; element++;
+            nnetdata->in_pats[patt][element] = (double) val3; element++;
+            nnetdata->in_pats[patt][element] = (double) val4; element++;
+            nnetdata->in_pats[patt][element] = (double) val5; element++;
         }
         for (i=0;i<IN_SIZE; i++)
         {
-            if (in_pats[patt][i] >= 0.9)
-                in_pats[patt][i] = 0.9;
-            if (in_pats[patt][i] <= 0.1)
-                in_pats[patt][i] = 0.1;
+            if (nnetdata->in_pats[patt][i] >= 0.9)
+                nnetdata->in_pats[patt][i] = 0.9;
+            if (nnetdata->in_pats[patt][i] <= 0.1)
+                nnetdata->in_pats[patt][i] = 0.1;
         }
         element = 0;
         vals_read = fscanf(infile,"%d  %d  %d  %d  %d  %d  %d  %d",
                 &val1, &val2, &val3, &val4, &val5, &val6, &val7, &val8);
 
-        out_pats[patt][element] = (double) val1; element++;
-        out_pats[patt][element] = (double) val2; element++;
-        out_pats[patt][element] = (double) val3; element++;
-        out_pats[patt][element] = (double) val4; element++;
-        out_pats[patt][element] = (double) val5; element++;
-        out_pats[patt][element] = (double) val6; element++;
-        out_pats[patt][element] = (double) val7; element++;
-        out_pats[patt][element] = (double) val8; element++;
+        nnetdata->out_pats[patt][element] = (double) val1; element++;
+        nnetdata->out_pats[patt][element] = (double) val2; element++;
+        nnetdata->out_pats[patt][element] = (double) val3; element++;
+        nnetdata->out_pats[patt][element] = (double) val4; element++;
+        nnetdata->out_pats[patt][element] = (double) val5; element++;
+        nnetdata->out_pats[patt][element] = (double) val6; element++;
+        nnetdata->out_pats[patt][element] = (double) val7; element++;
+        nnetdata->out_pats[patt][element] = (double) val8; element++;
     }
 
     /* printf("\n Closing the input file now. "); */

@@ -86,7 +86,7 @@ TestControlStruct global_fourierstruct;       /* For fourier test */
 TestControlStruct global_assignstruct;        /* For assignment algorithm */
 TestControlStruct global_ideastruct;          /* For IDEA encryption */
 TestControlStruct global_huffstruct;          /* For Huffman compression */
-NNetStruct global_nnetstruct;           /* For Neural Net */
+TestControlStruct global_nnetstruct;          /* For Neural Net */
 TestControlStruct global_lustruct;            /* For LU decomposition */
 
 
@@ -236,6 +236,7 @@ int main(int argc, char *argv[])
     global_huffstruct.errorcontext="CPU:Huffman";
 
     global_nnetstruct.adjust=0;
+    global_nnetstruct.errorcontext="CPU:NNET";
 
     global_lustruct.adjust=0;
     global_lustruct.errorcontext="FPU:LU";
@@ -1069,7 +1070,7 @@ static double getscore(int fid)
         case TF_HUFF:
             return(global_huffstruct.realrate);
         case TF_NNET:
-            return(global_nnetstruct.iterspersec);
+            return(global_nnetstruct.realrate);
         case TF_LU:
             return(global_lustruct.realrate);
     }
