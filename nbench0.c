@@ -84,7 +84,7 @@ TestControlStruct global_bitopstruct;         /* For bitfield operations */
 TestControlStruct global_emfloatstruct;       /* For emul. float. point */
 TestControlStruct global_fourierstruct;       /* For fourier test */
 TestControlStruct global_assignstruct;        /* For assignment algorithm */
-IDEAStruct global_ideastruct;           /* For IDEA encryption */
+TestControlStruct global_ideastruct;           /* For IDEA encryption */
 HuffStruct global_huffstruct;           /* For Huffman compression */
 NNetStruct global_nnetstruct;           /* For Neural Net */
 LUStruct global_lustruct;               /* For LU decomposition */
@@ -1056,7 +1056,7 @@ static double getscore(int fid)
         case TF_ASSIGN:
             return(global_assignstruct.realrate);
         case TF_IDEA:
-            return(global_ideastruct.iterspersec);
+            return(global_ideastruct.realrate);
         case TF_HUFF:
             return(global_huffstruct.iterspersec);
         case TF_NNET:

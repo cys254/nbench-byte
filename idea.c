@@ -81,10 +81,12 @@ typedef u16 IDEAkey[KEYLEN];
 ** PROTOTYPES
 */
 void DoIDEA(void);
-static ulong DoIDEAIteration(faruchar *plain1,
+void DoIDEAAdjust(TestControlStruct *locideastruct);
+void *IDEAFunc(void *data);
+static void DoIDEAIteration(faruchar *plain1,
 	faruchar *crypt1, faruchar *plain2,
 	ulong arraysize, ulong nloops,
-	IDEAkey Z, IDEAkey DK);
+	IDEAkey Z, IDEAkey DK, StopWatchStruct *stopwatch);
 static u16 mul(register u16 a, register u16 b);
 static u16 inv(u16 x);
 static void en_key_idea(u16 userkey[8], IDEAkey Z);
@@ -99,17 +101,7 @@ static void cipher_idea(u16 in[4], u16 out[4], IDEAkey Z);
 */
 void DoIDEA(void)
 {
-    IDEAStruct *locideastruct;      /* Loc pointer to global structure */
-    int i;
-    IDEAkey Z,DK;
-    u16 userkey[8];
-    ulong accumtime;
-    double iterations;
-    char *errorcontext;
-    int systemerror;
-    faruchar *plain1;               /* First plaintext buffer */
-    faruchar *crypt1;               /* Encryption buffer */
-    faruchar *plain2;               /* Second plaintext buffer */
+    TestControlStruct *locideastruct;      /* Loc pointer to global structure */
 
     /*
      ** Link to global data
@@ -119,7 +111,147 @@ void DoIDEA(void)
     /*
      ** Set error context
      */
-    errorcontext="CPU:IDEA";
+    locideastruct->errorcontext="CPU:IDEA";
+
+    /*
+     ** See if we need to do self adjustment code.
+     */
+    DoIDEAAdjust(locideastruct);
+
+    /*
+     ** Run the benchmark
+     */
+    run_bench_with_concurrency(locideastruct, IDEAFunc);
+}
+
+/*****************
+** DoIDEAAdjust **
+******************
+** Perform self-adjust
+*/
+void DoIDEAAdjust(TestControlStruct *locideastruct)
+{
+    /*
+     ** See if we need to perform self adjustment loop.
+     */
+    if(locideastruct->adjust==0)
+    {
+    int i;
+    IDEAkey Z,DK;
+    u16 userkey[8];
+    int systemerror;
+    faruchar *plain1;               /* First plaintext buffer */
+    faruchar *crypt1;               /* Encryption buffer */
+    faruchar *plain2;               /* Second plaintext buffer */
+    StopWatchStruct stopwatch;      /* Stop watch to time the test */
+
+        /*
+         ** Re-init random-number generator.
+         */
+        /* randnum(3L); */
+        randnum((int32)3);
+
+        /*
+         ** Build an encryption/decryption key
+         */
+        for (i=0;i<8;i++)
+            userkey[i]=(u16)(abs_randwc((int32)60000) & 0xFFFF);
+        for(i=0;i<KEYLEN;i++)
+            Z[i]=0;
+
+        /*
+         ** Compute encryption/decryption subkeys
+         */
+        en_key_idea(userkey,Z);
+        de_key_idea(Z,DK);
+
+        /*
+         ** Allocate memory for buffers.  We'll make 3, called plain1,
+         ** crypt1, and plain2.  It works like this:
+         **   plain1 >>encrypt>> crypt1 >>decrypt>> plain2.
+         ** So, plain1 and plain2 should match.
+         ** Also, fill up plain1 with sample text.
+         */
+        plain1=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
+        if(systemerror)
+        {
+            ReportError(locideastruct->errorcontext,systemerror);
+            ErrorExit();
+        }
+
+        crypt1=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
+        if(systemerror)
+        {
+            ReportError(locideastruct->errorcontext,systemerror);
+            FreeMemory((farvoid *)plain1,&systemerror);
+            ErrorExit();
+        }
+
+        plain2=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
+        if(systemerror)
+        {
+            ReportError(locideastruct->errorcontext,systemerror);
+            FreeMemory((farvoid *)plain1,&systemerror);
+            FreeMemory((farvoid *)crypt1,&systemerror);
+            ErrorExit();
+        }
+
+        /*
+         ** Note that we build the "plaintext" by simply loading
+         ** the array up with random numbers.
+         */
+        for(i=0;i<locideastruct->arraysize;i++)
+            plain1[i]=(uchar)(abs_randwc(255) & 0xFF);
+
+        /*
+         ** Do self-adjustment.  This involves initializing the
+         ** # of loops and increasing the loop count until we
+         ** get a number of loops that we can use.
+         */
+        for(locideastruct->loops=100L;
+                locideastruct->loops<MAXIDEALOOPS;
+                locideastruct->loops+=10L) {
+            ResetStopWatch(&stopwatch);
+            DoIDEAIteration(plain1,crypt1,plain2,
+                        locideastruct->arraysize,
+                        locideastruct->loops,
+                        Z,DK,&stopwatch);
+            if(stopwatch.realsecs>0.001) break;
+        }
+
+        /*
+         ** Clean up, and go home.  Be sure to
+         ** show that we don't have to rerun adjustment code.
+         */
+        FreeMemory((farvoid *)plain1,&systemerror);
+        FreeMemory((farvoid *)crypt1,&systemerror);
+        FreeMemory((farvoid *)plain2,&systemerror);
+
+        locideastruct->adjust=1;
+    }
+}
+
+/***********
+** IDEAFunc **
+************
+** Perform IDEA encryption.  Note that we time encryption & decryption
+** time as being a single loop.
+*/
+void *IDEAFunc(void *data)
+{
+    TestThreadData *testdata;              /* test data passed from thread func */
+    TestControlStruct *locideastruct;      /* Loc pointer to global structure */
+    StopWatchStruct stopwatch;             /* Stop watch to time the test */
+    int i;
+    IDEAkey Z,DK;
+    u16 userkey[8];
+    int systemerror;
+    faruchar *plain1;               /* First plaintext buffer */
+    faruchar *crypt1;               /* Encryption buffer */
+    faruchar *plain2;               /* Second plaintext buffer */
+
+    testdata = (TestThreadData *)data;
+    locideastruct = testdata->control;
 
     /*
      ** Re-init random-number generator.
@@ -152,14 +284,14 @@ void DoIDEA(void)
     plain1=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
     if(systemerror)
     {
-        ReportError(errorcontext,systemerror);
+        ReportError(locideastruct->errorcontext,systemerror);
         ErrorExit();
     }
 
     crypt1=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
     if(systemerror)
     {
-        ReportError(errorcontext,systemerror);
+        ReportError(locideastruct->errorcontext,systemerror);
         FreeMemory((farvoid *)plain1,&systemerror);
         ErrorExit();
     }
@@ -167,11 +299,12 @@ void DoIDEA(void)
     plain2=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
     if(systemerror)
     {
-        ReportError(errorcontext,systemerror);
+        ReportError(locideastruct->errorcontext,systemerror);
         FreeMemory((farvoid *)plain1,&systemerror);
         FreeMemory((farvoid *)crypt1,&systemerror);
         ErrorExit();
     }
+
     /*
      ** Note that we build the "plaintext" by simply loading
      ** the array up with random numbers.
@@ -180,36 +313,17 @@ void DoIDEA(void)
         plain1[i]=(uchar)(abs_randwc(255) & 0xFF);
 
     /*
-     ** See if we need to perform self adjustment loop.
-     */
-    if(locideastruct->adjust==0)
-    {
-        /*
-         ** Do self-adjustment.  This involves initializing the
-         ** # of loops and increasing the loop count until we
-         ** get a number of loops that we can use.
-         */
-        for(locideastruct->loops=100L;
-                locideastruct->loops<MAXIDEALOOPS;
-                locideastruct->loops+=10L)
-            if(DoIDEAIteration(plain1,crypt1,plain2,
-                        locideastruct->arraysize,
-                        locideastruct->loops,
-                        Z,DK)>global_min_ticks) break;
-    }
-
-    /*
      ** All's well if we get here.  Do the test.
      */
-    accumtime=0L;
-    iterations=(double)0.0;
+    testdata->result.iterations=(double)0.0;
+    ResetStopWatch(&stopwatch);
 
     do {
-        accumtime+=DoIDEAIteration(plain1,crypt1,plain2,
+        DoIDEAIteration(plain1,crypt1,plain2,
                 locideastruct->arraysize,
-                locideastruct->loops,Z,DK);
-        iterations+=(double)locideastruct->loops;
-    } while(TicksToSecs(accumtime)<locideastruct->request_secs);
+                locideastruct->loops,Z,DK,&stopwatch);
+        testdata->result.iterations+=(double)locideastruct->loops;
+    } while(stopwatch.realsecs<locideastruct->request_secs);
 
     /*
      ** Clean up, calculate results, and go home.  Be sure to
@@ -218,13 +332,11 @@ void DoIDEA(void)
     FreeMemory((farvoid *)plain1,&systemerror);
     FreeMemory((farvoid *)crypt1,&systemerror);
     FreeMemory((farvoid *)plain2,&systemerror);
-    locideastruct->iterspersec=iterations / TicksToFracSecs(accumtime);
 
-    if(locideastruct->adjust==0)
-        locideastruct->adjust=1;
+    testdata->result.cpusecs = stopwatch.cpusecs;
+    testdata->result.realsecs = stopwatch.realsecs;
 
-    return;
-
+    return 0;
 }
 
 /********************
@@ -234,17 +346,17 @@ void DoIDEA(void)
 ** Actually, a single iteration is one encryption and one
 ** decryption.
 */
-static ulong DoIDEAIteration(faruchar *plain1,
+static void DoIDEAIteration(faruchar *plain1,
             faruchar *crypt1,
             faruchar *plain2,
             ulong arraysize,
             ulong nloops,
             IDEAkey Z,
-            IDEAkey DK)
+            IDEAkey DK,
+            StopWatchStruct *stopwatch)
 {
     register ulong i;
     register ulong j;
-    ulong elapsed;
 #ifdef DEBUG
     int status=0;
 #endif
@@ -252,7 +364,7 @@ static ulong DoIDEAIteration(faruchar *plain1,
     /*
      ** Start the stopwatch.
      */
-    elapsed=StartStopwatch();
+    StartStopWatch(stopwatch);
 
     /*
      ** Do everything for nloops.
@@ -278,7 +390,7 @@ static ulong DoIDEAIteration(faruchar *plain1,
     /*
      ** Get elapsed time.
      */
-    return(StopStopwatch(elapsed));
+    StopStopWatch(stopwatch);
 }
 
 /********
