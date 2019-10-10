@@ -219,7 +219,9 @@ void *FourierFunc(void *data)
      ** tests until the accumulated time is greater than the
      ** # of seconds requested.
      */
+    testdata->result.iterations=0.0;
     ResetStopWatch(&stopwatch);
+
     do {
         DoFPUTransIteration(abase,bbase,locfourierstruct->arraysize,&stopwatch);
         testdata->result.iterations+=(double)locfourierstruct->arraysize*(double)2.0-(double)1.0;
@@ -259,7 +261,7 @@ static void DoFPUTransIteration(fardouble *abase,      /* A coeffs. */
     /*
      ** Start the stopwatch
      */
-    StartStopwatch(stopwatch);
+    StartStopWatch(stopwatch);
 
     /*
      ** Calculate the fourier series.  Begin by
