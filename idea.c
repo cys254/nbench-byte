@@ -75,12 +75,27 @@
 #define low16(x) ((x) & 0x0FFFF)
 #define MUL(x,y) (x=mul(low16(x),y))
 
+
+/*
+** TYPEDEFS
+*/
 typedef u16 IDEAkey[KEYLEN];
+
+typedef struct {
+    IDEAkey Z,DK;
+    u16 userkey[8];
+    int systemerror;
+    faruchar *plain1;               /* First plaintext buffer */
+    faruchar *crypt1;               /* Encryption buffer */
+    faruchar *plain2;               /* Second plaintext buffer */
+} IDEAData;
 
 /*
 ** PROTOTYPES
 */
 void DoIDEA(void);
+void IDEADataSetup(TestControlStruct *locideastruct, IDEAData *ideadata);
+void IDEADataCleanup(IDEAData *ideadata);
 void DoIDEAAdjust(TestControlStruct *locideastruct);
 void *IDEAFunc(void *data);
 static void DoIDEAIteration(faruchar *plain1,
@@ -124,6 +139,89 @@ void DoIDEA(void)
     run_bench_with_concurrency(locideastruct, IDEAFunc);
 }
 
+
+/******************
+** IDEADataSetup **
+*******************
+** Setup IDEA test data
+*/
+void IDEADataSetup(TestControlStruct *locideastruct, IDEAData *ideadata)
+{
+    int i;
+    int systemerror;
+
+    /*
+     ** Re-init random-number generator.
+     */
+    randnum((int32)3);
+
+    /*
+     ** Build an encryption/decryption key
+     */
+    for (i=0;i<8;i++)
+            ideadata->userkey[i]=(u16)(abs_randwc((int32)60000) & 0xFFFF);
+    for(i=0;i<KEYLEN;i++)
+            ideadata->Z[i]=0;
+
+    /*
+     ** Compute encryption/decryption subkeys
+     */
+    en_key_idea(ideadata->userkey,ideadata->Z);
+    de_key_idea(ideadata->Z,ideadata->DK);
+
+    /*
+     ** Allocate memory for buffers.  We'll make 3, called plain1,
+     ** crypt1, and plain2.  It works like this:
+     **   plain1 >>encrypt>> crypt1 >>decrypt>> plain2.
+     ** So, plain1 and plain2 should match.
+     ** Also, fill up plain1 with sample text.
+     */
+    ideadata->plain1=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
+    if(systemerror)
+    {
+        ReportError(locideastruct->errorcontext,systemerror);
+        ErrorExit();
+    }
+
+    ideadata->crypt1=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
+    if(systemerror)
+    {
+        ReportError(locideastruct->errorcontext,systemerror);
+        FreeMemory((farvoid *)ideadata->plain1,&systemerror);
+        ErrorExit();
+    }
+
+    ideadata->plain2=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
+    if(systemerror)
+    {
+        ReportError(locideastruct->errorcontext,systemerror);
+        FreeMemory((farvoid *)ideadata->plain1,&systemerror);
+        FreeMemory((farvoid *)ideadata->crypt1,&systemerror);
+        ErrorExit();
+    }
+
+    /*
+     ** Note that we build the "plaintext" by simply loading
+     ** the array up with random numbers.
+     */
+    for(i=0;i<locideastruct->arraysize;i++)
+        ideadata->plain1[i]=(uchar)(abs_randwc(255) & 0xFF);
+}
+
+/********************
+** IDEADataCleanup **
+*********************
+** Cleanup IDEA test data
+*/
+void IDEADataCleanup(IDEAData *ideadata)
+{
+    int systemerror;
+    FreeMemory((farvoid *)ideadata->plain1,&systemerror);
+    FreeMemory((farvoid *)ideadata->crypt1,&systemerror);
+    FreeMemory((farvoid *)ideadata->plain2,&systemerror);
+}
+
+
 /*****************
 ** DoIDEAAdjust **
 ******************
@@ -136,72 +234,13 @@ void DoIDEAAdjust(TestControlStruct *locideastruct)
      */
     if(locideastruct->adjust==0)
     {
-    int i;
-    IDEAkey Z,DK;
-    u16 userkey[8];
-    int systemerror;
-    faruchar *plain1;               /* First plaintext buffer */
-    faruchar *crypt1;               /* Encryption buffer */
-    faruchar *plain2;               /* Second plaintext buffer */
-    StopWatchStruct stopwatch;      /* Stop watch to time the test */
+        IDEAData ideadata;          /* test data */
+        StopWatchStruct stopwatch;      /* Stop watch to time the test */
 
         /*
-         ** Re-init random-number generator.
+         ** Setup test data
          */
-        /* randnum(3L); */
-        randnum((int32)3);
-
-        /*
-         ** Build an encryption/decryption key
-         */
-        for (i=0;i<8;i++)
-            userkey[i]=(u16)(abs_randwc((int32)60000) & 0xFFFF);
-        for(i=0;i<KEYLEN;i++)
-            Z[i]=0;
-
-        /*
-         ** Compute encryption/decryption subkeys
-         */
-        en_key_idea(userkey,Z);
-        de_key_idea(Z,DK);
-
-        /*
-         ** Allocate memory for buffers.  We'll make 3, called plain1,
-         ** crypt1, and plain2.  It works like this:
-         **   plain1 >>encrypt>> crypt1 >>decrypt>> plain2.
-         ** So, plain1 and plain2 should match.
-         ** Also, fill up plain1 with sample text.
-         */
-        plain1=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
-        if(systemerror)
-        {
-            ReportError(locideastruct->errorcontext,systemerror);
-            ErrorExit();
-        }
-
-        crypt1=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
-        if(systemerror)
-        {
-            ReportError(locideastruct->errorcontext,systemerror);
-            FreeMemory((farvoid *)plain1,&systemerror);
-            ErrorExit();
-        }
-
-        plain2=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
-        if(systemerror)
-        {
-            ReportError(locideastruct->errorcontext,systemerror);
-            FreeMemory((farvoid *)plain1,&systemerror);
-            FreeMemory((farvoid *)crypt1,&systemerror);
-            ErrorExit();
-        }
-
-        /*
-         ** Note that we build the "plaintext" by simply loading
-         ** the array up with random numbers.
-         */
-        for(i=0;i<locideastruct->arraysize;i++)
-            plain1[i]=(uchar)(abs_randwc(255) & 0xFF);
+        IDEADataSetup(locideastruct, &ideadata);
 
         /*
          ** Do self-adjustment.  This involves initializing the
@@ -212,10 +251,10 @@ void DoIDEAAdjust(TestControlStruct *locideastruct)
                 locideastruct->loops<MAXIDEALOOPS;
                 locideastruct->loops+=10L) {
             ResetStopWatch(&stopwatch);
-            DoIDEAIteration(plain1,crypt1,plain2,
+            DoIDEAIteration(ideadata.plain1,ideadata.crypt1,ideadata.plain2,
                         locideastruct->arraysize,
                         locideastruct->loops,
-                        Z,DK,&stopwatch);
+                        ideadata.Z,ideadata.DK,&stopwatch);
             if(stopwatch.realsecs>0.001) break;
         }
 
@@ -223,9 +262,7 @@ void DoIDEAAdjust(TestControlStruct *locideastruct)
          ** Clean up, and go home.  Be sure to
          ** show that we don't have to rerun adjustment code.
          */
-        FreeMemory((farvoid *)plain1,&systemerror);
-        FreeMemory((farvoid *)crypt1,&systemerror);
-        FreeMemory((farvoid *)plain2,&systemerror);
+        IDEADataCleanup(&ideadata);
 
         locideastruct->adjust=1;
     }
@@ -242,75 +279,15 @@ void *IDEAFunc(void *data)
     TestThreadData *testdata;              /* test data passed from thread func */
     TestControlStruct *locideastruct;      /* Loc pointer to global structure */
     StopWatchStruct stopwatch;             /* Stop watch to time the test */
-    int i;
-    IDEAkey Z,DK;
-    u16 userkey[8];
-    int systemerror;
-    faruchar *plain1;               /* First plaintext buffer */
-    faruchar *crypt1;               /* Encryption buffer */
-    faruchar *plain2;               /* Second plaintext buffer */
+    IDEAData ideadata;                     /* test data */
 
     testdata = (TestThreadData *)data;
     locideastruct = testdata->control;
 
     /*
-     ** Re-init random-number generator.
+     ** Setup test data
      */
-    /* randnum(3L); */
-    randnum((int32)3);
-
-    /*
-     ** Build an encryption/decryption key
-     */
-    for (i=0;i<8;i++)
-        /* userkey[i]=(u16)(abs_randwc(60000L) & 0xFFFF); */
-        userkey[i]=(u16)(abs_randwc((int32)60000) & 0xFFFF);
-    for(i=0;i<KEYLEN;i++)
-        Z[i]=0;
-
-    /*
-     ** Compute encryption/decryption subkeys
-     */
-    en_key_idea(userkey,Z);
-    de_key_idea(Z,DK);
-
-    /*
-     ** Allocate memory for buffers.  We'll make 3, called plain1,
-     ** crypt1, and plain2.  It works like this:
-     **   plain1 >>encrypt>> crypt1 >>decrypt>> plain2.
-     ** So, plain1 and plain2 should match.
-     ** Also, fill up plain1 with sample text.
-     */
-    plain1=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
-    if(systemerror)
-    {
-        ReportError(locideastruct->errorcontext,systemerror);
-        ErrorExit();
-    }
-
-    crypt1=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
-    if(systemerror)
-    {
-        ReportError(locideastruct->errorcontext,systemerror);
-        FreeMemory((farvoid *)plain1,&systemerror);
-        ErrorExit();
-    }
-
-    plain2=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
-    if(systemerror)
-    {
-        ReportError(locideastruct->errorcontext,systemerror);
-        FreeMemory((farvoid *)plain1,&systemerror);
-        FreeMemory((farvoid *)crypt1,&systemerror);
-        ErrorExit();
-    }
-
-    /*
-     ** Note that we build the "plaintext" by simply loading
-     ** the array up with random numbers.
-     */
-    for(i=0;i<locideastruct->arraysize;i++)
-        plain1[i]=(uchar)(abs_randwc(255) & 0xFF);
+    IDEADataSetup(locideastruct, &ideadata);
 
     /*
      ** All's well if we get here.  Do the test.
@@ -319,9 +296,9 @@ void *IDEAFunc(void *data)
     ResetStopWatch(&stopwatch);
 
     do {
-        DoIDEAIteration(plain1,crypt1,plain2,
+        DoIDEAIteration(ideadata.plain1,ideadata.crypt1,ideadata.plain2,
                 locideastruct->arraysize,
-                locideastruct->loops,Z,DK,&stopwatch);
+                locideastruct->loops,ideadata.Z,ideadata.DK,&stopwatch);
         testdata->result.iterations+=(double)locideastruct->loops;
     } while(stopwatch.realsecs<locideastruct->request_secs);
 
@@ -329,9 +306,7 @@ void *IDEAFunc(void *data)
      ** Clean up, calculate results, and go home.  Be sure to
      ** show that we don't have to rerun adjustment code.
      */
-    FreeMemory((farvoid *)plain1,&systemerror);
-    FreeMemory((farvoid *)crypt1,&systemerror);
-    FreeMemory((farvoid *)plain2,&systemerror);
+    IDEADataCleanup(&ideadata);
 
     testdata->result.cpusecs = stopwatch.cpusecs;
     testdata->result.realsecs = stopwatch.realsecs;
