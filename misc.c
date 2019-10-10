@@ -23,6 +23,11 @@
 #include "nmglobal.h"
 #include "misc.h"
 
+#ifdef LOGICAL_CPUS
+#include <pthread.h>
+#include "sysspec.h"
+#endif
+
 /***********************************************************
 **     MISCELLANEOUS BUT OTHERWISE NECESSARY ROUTINES     **
 ***********************************************************/
@@ -117,6 +122,54 @@ int32 randnum(int32 lngval)
     randw[1]=randw[0];
     randw[0]=interm;
     return(interm);
+}
+
+/*********************************
+*   run_bench_with_concurrency   *
+**********************************
+**  run benchmark (concurrently) if global_concurrency > 1
+**  merge test result from multiple threads
+**  calculate rate by real time and by cpu time
+*/
+void run_bench_with_concurrency(TestControlStruct *testctl, void *(*thread_func)(void *))
+{
+#ifdef LOGICAL_CPUS
+    TestThreadData testdatas[LOGICAL_CPUS];
+    pthread_t threads[LOGICAL_CPUS];
+    int i;
+#else
+    TestThreadData testdatas[1];
+#endif
+
+#ifdef LOGICAL_CPUS
+    for (i=1;i<global_concurrency;i++) {
+        int systemerror;        /* For holding error codes */
+        testdatas[i].control = testctl;
+        systemerror = pthread_create(&threads[i], 0, thread_func, &testdatas[i]);
+        if(systemerror)
+        {
+            ReportError(testctl->errorcontext,systemerror);
+            ErrorExit();
+        }
+    }
+#endif
+
+    testdatas[0].control = testctl;
+    thread_func(&testdatas[0]);
+    testctl->result = testdatas[0].result;
+
+#ifdef LOGICAL_CPUS
+    for (i=1;i<global_concurrency;i++) {
+        pthread_join(threads[i], 0);
+        merge_result(&testctl->result, &testdatas[i].result);
+    }
+#endif
+
+    testctl->cpurate  = testctl->result.iterations / ( testctl->result.cpusecs / global_concurrency );
+    testctl->realrate = testctl->result.iterations / testctl->result.realsecs;
+
+    printf("iterations=%f realsecs=%f realrate=%f cpusecs=%f cpurate=%f\n", testctl->result.iterations,
+              testctl->result.realsecs, testctl->realrate, testctl->result.cpusecs, testctl->cpurate);
 }
 
 /*******************************

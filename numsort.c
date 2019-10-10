@@ -53,10 +53,6 @@
 #include "sysspec.h"
 #include "misc.h"
 
-#ifdef LOGICAL_CPUS
-#include <pthread.h>
-#endif
-
 #ifdef DEBUG
 static int numsort_status=0;
 #endif
@@ -98,13 +94,6 @@ static void NumSift(farlong *array,
 void DoNumSort(void)
 {
     TestControlStruct *numsortstruct;      /* Local pointer to global struct */
-#ifdef LOGICAL_CPUS
-    TestThreadData  testdatas[LOGICAL_CPUS];        /* Test data to pass to thread func */
-    pthread_t threads[LOGICAL_CPUS];                /* pthread handles */
-    int i;
-#else
-    TestThreadData  testdatas[1];        /* Test data to pass to thread func */
-#endif
 
     /*
      ** Link to global structure
@@ -121,33 +110,10 @@ void DoNumSort(void)
      */
     DoNumSortAdjust(numsortstruct);
 
-#ifdef LOGICAL_CPUS
-    for (i=1;i<numsortstruct->concurrency;i++) {
-        int systemerror;        /* For holding error codes */
-        testdatas[i].control = numsortstruct;
-        systemerror = pthread_create(&threads[i], 0, NumSortFunc, &testdatas[i]);
-        if(systemerror)
-        {
-            ReportError(numsortstruct->errorcontext,systemerror);
-            ErrorExit();
-        }
-    }
-#endif
-    testdatas[0].control = numsortstruct;
-    NumSortFunc(&testdatas[0]);
-    numsortstruct->result = testdatas[0].result;
-#ifdef LOGICAL_CPUS
-    for (i=1;i<numsortstruct->concurrency;i++) {
-        pthread_join(threads[i], 0);
-        merge_result(&numsortstruct->result, &testdatas[i].result);
-    }
-#endif
-
-    numsortstruct->cpurate  = numsortstruct->result.iterations * (double)numsortstruct->numarrays / ( numsortstruct->result.cpusecs / numsortstruct->concurrency );
-    numsortstruct->realrate = numsortstruct->result.iterations * (double)numsortstruct->numarrays / numsortstruct->result.realsecs;
-
-    printf("iterations=%f %d realsecs=%f cpusecs=%f cpurate=%f\n", numsortstruct->result.iterations, numsortstruct->numarrays,
-              numsortstruct->result.realsecs, numsortstruct->result.cpusecs, numsortstruct->cpurate);
+    /*
+     ** Run the benchmark
+     */
+    run_bench_with_concurrency(numsortstruct, NumSortFunc);
 
 #ifdef DEBUG
     if (numsort_status==0) printf("Numeric sort: OK\n");
@@ -244,7 +210,7 @@ void *NumSortFunc(void *data)
                 numsortstruct->arraysize,
                 numsortstruct->numarrays,
                 &stopwatch);
-        testdata->result.iterations+=(double)1.0;
+        testdata->result.iterations+=(double)numsortstruct->numarrays;
     } while(stopwatch.realsecs<numsortstruct->request_secs);
 
     /*

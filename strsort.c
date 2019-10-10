@@ -52,10 +52,6 @@
 #include "sysspec.h"
 #include "misc.h"
 
-#ifdef LOGICAL_CPUS
-#include <pthread.h>
-#endif
-
 #ifdef DEBUG
 static int stringsort_status=0;
 #endif
@@ -107,13 +103,6 @@ static void strsift(farulong *optrarray,
 */
 void DoStringSort(void)
 {
-#ifdef LOGICAL_CPUS
-    TestThreadData testdatas[LOGICAL_CPUS];
-    pthread_t threads[LOGICAL_CPUS];
-    int i;
-#else
-    TestThreadData testdatas[1];
-#endif
     TestControlStruct *strsortstruct;      /* Local for sort structure */
 
     /*
@@ -132,36 +121,9 @@ void DoStringSort(void)
     DoStringSortAdjust(strsortstruct);
 
     /*
-     ** All's well if we get here.  Repeatedly perform sorts until the
-     ** accumulated elapsed time is greater than # of seconds requested.
+     ** Run the benchmark
      */
-#ifdef LOGICAL_CPUS
-    for (i=1;i<strsortstruct->concurrency;i++) {
-        int systemerror;        /* For holding error codes */
-        testdatas[i].control = strsortstruct;
-        systemerror = pthread_create(&threads[i], 0, StringSortFunc, &testdatas[i]);
-        if(systemerror)
-        {
-            ReportError(strsortstruct->errorcontext,systemerror);
-            ErrorExit();
-        }
-    }
-#endif
-    testdatas[0].control = strsortstruct;
-    StringSortFunc(&testdatas[0]);
-    strsortstruct->result = testdatas[0].result;
-#ifdef LOGICAL_CPUS
-    for (i=1;i<strsortstruct->concurrency;i++) {
-        pthread_join(threads[i], 0);
-        merge_result(&strsortstruct->result, &testdatas[i].result);
-    }
-#endif
-
-    strsortstruct->cpurate  = strsortstruct->result.iterations * (double)strsortstruct->numarrays / ( strsortstruct->result.cpusecs / strsortstruct->concurrency );
-    strsortstruct->realrate = strsortstruct->result.iterations * (double)strsortstruct->numarrays / strsortstruct->result.realsecs;
-
-    printf("iterations=%f %d realsecs=%f cpusecs=%f cpurate=%f\n", strsortstruct->result.iterations, strsortstruct->numarrays,
-              strsortstruct->result.realsecs, strsortstruct->result.cpusecs, strsortstruct->cpurate);
+    run_bench_with_concurrency(strsortstruct, StringSortFunc);
 
 #ifdef DEBUG
     if (stringsort_status==0) printf("String sort: OK\n");

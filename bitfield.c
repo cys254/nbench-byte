@@ -56,11 +56,14 @@
 *************************/
 
 void DoBitops(void);
+void DoBitopsAdjust(TestControlStruct *strsortstruct);
 
-static ulong DoBitfieldIteration(farulong *bitarraybase,
+static void *BitopsFunc(void *data);
+static void DoBitfieldIteration(farulong *bitarraybase,
 		farulong *bitoparraybase,
 		long bitoparraysize,
-		ulong *nbitops);
+		ulong *nbitops,
+        StopWatchStruct *stopwatch);
 static void ToggleBitRun(farulong *bitmap,
 		ulong bit_addr,
 		ulong nbits,
@@ -77,15 +80,7 @@ static void FlipBitRun(farulong *bitmap,
 */
 void DoBitops(void)
 {
-    BitOpStruct *locbitopstruct;    /* Local bitop structure */
-    farulong *bitarraybase;         /* Base of bitmap array */
-    farulong *bitoparraybase;       /* Base of bitmap operations array */
-    ulong nbitops;                  /* # of bitfield operations */
-    ulong accumtime;                /* Accumulated time in ticks */
-    double iterations;              /* # of iterations */
-    char *errorcontext;             /* Error context string */
-    int systemerror;                /* For holding error codes */
-    int ticks;
+    TestControlStruct *locbitopstruct;    /* Local bitop structure */
 
     /*
      ** Link to global structure.
@@ -95,17 +90,35 @@ void DoBitops(void)
     /*
      ** Set the error context.
      */
-    errorcontext="CPU:Bitfields";
+    locbitopstruct->errorcontext="CPU:Bitfields";
 
     /*
      ** See if we need to run adjustment code.
      */
+    DoBitopsAdjust(locbitopstruct);
+
+    /*
+     ** Run the benchmark
+     */
+    run_bench_with_concurrency(locbitopstruct, BitopsFunc);
+
+    return;
+}
+
+void DoBitopsAdjust(TestControlStruct *locbitopstruct)
+{
     if(locbitopstruct->adjust==0)
     {
+        farulong *bitarraybase;         /* Base of bitmap array */
+        farulong *bitoparraybase;       /* Base of bitmap operations array */
+        ulong nbitops;                  /* # of bitfield operations */
+        StopWatchStruct stopwatch;      /* Stop watch to time the test */
+        int systemerror;                /* For holding error codes */
         bitarraybase=(farulong *)AllocateMemory(locbitopstruct->bitfieldarraysize *
                 sizeof(ulong),&systemerror);
         if(systemerror)
-        {       ReportError(errorcontext,systemerror);
+        {
+            ReportError(locbitopstruct->errorcontext,systemerror);
             ErrorExit();
         }
 
@@ -123,7 +136,8 @@ void DoBitops(void)
                     sizeof(ulong),
                     &systemerror);
             if(systemerror)
-            {       ReportError(errorcontext,systemerror);
+            {
+                ReportError(locbitopstruct->errorcontext,systemerror);
                 FreeMemory((farvoid *)bitarraybase,&systemerror);
                 ErrorExit();
             }
@@ -133,10 +147,12 @@ void DoBitops(void)
              ** minimum, then de-allocate the array, reallocate a
              ** larger version, and try again.
              */
-            ticks=DoBitfieldIteration(bitarraybase,
+            ResetStopWatch(&stopwatch);
+            DoBitfieldIteration(bitarraybase,
                     bitoparraybase,
                     locbitopstruct->bitoparraysize,
-                    &nbitops);
+                    &nbitops,
+                    &stopwatch);
 #ifdef DEBUG
 #ifdef LINUX
             if (locbitopstruct->bitoparraysize==30L){
@@ -163,60 +179,78 @@ void DoBitops(void)
 #endif
 #endif
 
-            if (ticks>global_min_ticks) break;      /* We're ok...exit */
-
             FreeMemory((farvoid *)bitoparraybase,&systemerror);
+
+            if (stopwatch.realsecs>0.001) break;      /* We're ok...exit */
+
             locbitopstruct->bitoparraysize+=100L;
         }
-    }
-    else
-    {
         /*
-         ** Don't need to do self adjustment, just allocate
-         ** the array space.
+         ** Set adjustment flag to show that we don't have
+         ** to do self adjusting in the future.
          */
-        bitarraybase=(farulong *)AllocateMemory(locbitopstruct->bitfieldarraysize *
+        locbitopstruct->adjust=1;
+    }
+}
+
+void *BitopsFunc(void *data)
+{
+    TestThreadData *testdata;       /* test data passed from thread func */
+    farulong *bitarraybase;         /* Base of bitmap array */
+    farulong *bitoparraybase;       /* Base of bitmap operations array */
+    ulong nbitops;                  /* # of bitfield operations */
+    StopWatchStruct stopwatch;      /* Stop watch to time the test */
+    int systemerror;                /* For holding error code */
+    TestControlStruct *locbitopstruct;      /* Local pointer to global struct */
+
+    testdata = (TestThreadData *)data;
+    locbitopstruct = testdata->control;
+
+    /*
+     ** allocate the array space.
+     */
+    bitarraybase=(farulong *)AllocateMemory(locbitopstruct->bitfieldarraysize *
                 sizeof(ulong),&systemerror);
-        if(systemerror)
-        {       ReportError(errorcontext,systemerror);
-            ErrorExit();
-        }
-        bitoparraybase=(farulong *)AllocateMemory(locbitopstruct->bitoparraysize*2L*
+    if(systemerror)
+    {
+        ReportError(locbitopstruct->errorcontext,systemerror);
+        ErrorExit();
+    }
+    bitoparraybase=(farulong *)AllocateMemory(locbitopstruct->bitoparraysize*2L*
                 sizeof(ulong),
                 &systemerror);
-        if(systemerror)
-        {       ReportError(errorcontext,systemerror);
-            FreeMemory((farvoid *)bitarraybase,&systemerror);
-            ErrorExit();
-        }
+    if(systemerror)
+    {
+        ReportError(locbitopstruct->errorcontext,systemerror);
+        FreeMemory((farvoid *)bitarraybase,&systemerror);
+        ErrorExit();
     }
 
     /*
-     ** All's well if we get here.  Repeatedly perform bitops until the
+     ** All's well if we get here.  Repeatedly perform sorts until the
      ** accumulated elapsed time is greater than # of seconds requested.
      */
-    accumtime=0L;
-    iterations=(double)0.0;
+    testdata->result.iterations = 0.0;
+    ResetStopWatch(&stopwatch);
+
     do {
-        accumtime+=DoBitfieldIteration(bitarraybase,
-                bitoparraybase,
-                locbitopstruct->bitoparraysize,&nbitops);
-        iterations+=(double)nbitops;
-    } while(TicksToSecs(accumtime)<locbitopstruct->request_secs);
+        DoBitfieldIteration(bitarraybase, bitoparraybase,
+                locbitopstruct->bitoparraysize,&nbitops,&stopwatch);
+        testdata->result.iterations+=(double)nbitops;
+    } while(stopwatch.realsecs<locbitopstruct->request_secs);
 
     /*
      ** Clean up, calculate results, and go home.
-     ** Also, set adjustment flag to show that we don't have
-     ** to do self adjusting in the future.
      */
     FreeMemory((farvoid *)bitarraybase,&systemerror);
     FreeMemory((farvoid *)bitoparraybase,&systemerror);
-    locbitopstruct->bitopspersec=iterations /TicksToFracSecs(accumtime);
-    if(locbitopstruct->adjust==0)
-        locbitopstruct->adjust=1;
 
-    return;
+    testdata->result.cpusecs = stopwatch.cpusecs;
+    testdata->result.realsecs = stopwatch.realsecs;
+
+    return 0;
 }
+
 
 /************************
 ** DoBitfieldIteration **
@@ -224,14 +258,14 @@ void DoBitops(void)
 ** Perform a single iteration of the bitfield benchmark.
 ** Return the # of ticks accumulated by the operation.
 */
-static ulong DoBitfieldIteration(farulong *bitarraybase,
+static void DoBitfieldIteration(farulong *bitarraybase,
         farulong *bitoparraybase,
         long bitoparraysize,
-        ulong *nbitops)
+        ulong *nbitops,
+        StopWatchStruct *stopwatch)
 {
     long i;                         /* Index */
     ulong bitoffset;                /* Offset into bitmap */
-    ulong elapsed;                  /* Time to execute */
     /*
      ** Clear # bitops counter
      */
@@ -279,7 +313,7 @@ static ulong DoBitfieldIteration(farulong *bitarraybase,
      ** the test.
      ** Start the stopwatch.
      */
-    elapsed=StartStopwatch();
+    StartStopWatch(stopwatch);
 
     /*
      ** Loop through array off offset/run length pairs.
@@ -313,9 +347,9 @@ static ulong DoBitfieldIteration(farulong *bitarraybase,
     }
 
     /*
-     ** Return elapsed time
+     ** Stop stopwatch
      */
-    return(StopStopwatch(elapsed));
+    StopStopWatch(stopwatch);
 }
 
 

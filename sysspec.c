@@ -893,7 +893,7 @@ unsigned long TicksToSecs(unsigned long tickamount)
 #endif
 
 #ifdef CLOCK_GETTIME
-    return 0;
+    return((unsigned long)(tickamount/CLOCKS_PER_SEC));
 #endif
 
 }
@@ -924,8 +924,9 @@ double TicksToFracSecs(unsigned long tickamount)
     /* Using 840 nanosecond ticks */
     return((double)tickamount/(double)1000);
 #endif
+
 #ifdef CLOCK_GETTIME
-    return 0.0;
+    return((double)tickamount/(double)CLOCKS_PER_SEC);
 #endif
 }
 

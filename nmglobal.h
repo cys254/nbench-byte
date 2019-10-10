@@ -284,7 +284,6 @@ typedef struct {
     double cpurate;         /* iteration or operations per second in cpu time */
     double realrate;        /* iteration or operations per second in real time */
     char *errorcontext;     /* Error context string pointer */
-    int concurrency;        /* Number of concurrent test threads */
 } TestControlStruct;
 
 typedef struct {
@@ -562,10 +561,11 @@ typedef struct {
 ** EXTERNALS
 */
 extern ulong global_min_ticks;
+extern int global_concurrency;        /* Number of concurrent test threads */
 
 extern TestControlStruct global_numsortstruct;
 extern TestControlStruct global_strsortstruct;
-extern BitOpStruct global_bitopstruct;
+extern TestControlStruct global_bitopstruct;
 extern EmFloatStruct global_emfloatstruct;
 extern FourierStruct global_fourierstruct;
 extern AssignStruct global_assignstruct;

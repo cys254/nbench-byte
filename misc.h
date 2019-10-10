@@ -39,4 +39,5 @@ int32 randnum(int32 lngval);
 
 #define nbench_set_max(max, x) max = x > max ? x : max
 
+void run_bench_with_concurrency(TestControlStruct *testctl, void *(*thread_func)(void *));
 void merge_result(TestResultStruct *merged_result, TestResultStruct *single_result);

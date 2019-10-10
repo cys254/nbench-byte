@@ -68,6 +68,7 @@ int tests_to_do[NUMTESTS];
 ulong global_min_ticks;         /* Minimum ticks */
 ulong global_min_seconds;       /* Minimum seconds tests run */
 int global_allstats;            /* Statistics dump flag */
+int global_concurrency = 1;     /* Number of concurrent test threads */
 char global_ofile_name[BUF_SIZ];/* Output file name */
 FILE *global_ofile;             /* Output file */
 int global_custrun;             /* Custom run flag */
@@ -77,9 +78,9 @@ int write_to_file;              /* Write output to file */
 ** Following are global structures, one built for
 ** each of the tests.
 */
-TestControlStruct global_numsortstruct;        /* For numeric sort */
-TestControlStruct global_strsortstruct;        /* For string sort */
-BitOpStruct global_bitopstruct;         /* For bitfield operations */
+TestControlStruct global_numsortstruct;       /* For numeric sort */
+TestControlStruct global_strsortstruct;       /* For string sort */
+TestControlStruct global_bitopstruct;         /* For bitfield operations */
 EmFloatStruct global_emfloatstruct;     /* For emul. float. point */
 FourierStruct global_fourierstruct;     /* For fourier test */
 AssignStruct global_assignstruct;       /* For assignment algorithm */
@@ -88,10 +89,6 @@ HuffStruct global_huffstruct;           /* For Huffman compression */
 NNetStruct global_nnetstruct;           /* For Neural Net */
 LUStruct global_lustruct;               /* For LU decomposition */
 
-/*
-** PROTOTYPES
-*/
-static void set_multithread();
 
 /*
 ** The following array of function struct pointers lets
@@ -209,11 +206,9 @@ int main(int argc, char *argv[])
      */
     set_request_secs();     /* Set all request_secs fields */
     global_numsortstruct.adjust=0;
-    global_numsortstruct.concurrency=1;
     global_numsortstruct.arraysize=NUMARRAYSIZE;
 
     global_strsortstruct.adjust=0;
-    global_strsortstruct.concurrency=1;
     global_strsortstruct.arraysize=STRINGARRAYSIZE;
 
     global_bitopstruct.adjust=0;
@@ -444,7 +439,7 @@ static int parse_arg(char *argptr)
         case 'V': global_allstats=1; return(0); /* verbose mode */
 
 #ifdef LOGICAL_CPUS
-        case 'M': set_multithread(); return(0); /* test in multithread */
+        case 'M': global_concurrency=LOGICAL_CPUS; return(0); /* test in multithread */
 #endif
 
         case 'C':                       /* Command file name */
@@ -820,20 +815,6 @@ static void set_request_secs(void)
     return;
 }
 
-#ifdef LOGICAL_CPUS
-/*********************
-** set_multithread **
-**********************
-** Set every test's concurrency to LOGICAL_CPUS
-** to test using multithread
-*/
-static void set_multithread(void)
-{
-    global_numsortstruct.concurrency = LOGICAL_CPUS;
-    global_strsortstruct.concurrency = LOGICAL_CPUS;
-}
-#endif
-
 
 /**************************
 ** bench_with_confidence **
@@ -1067,7 +1048,7 @@ static double getscore(int fid)
         case TF_SSORT:
             return(global_strsortstruct.realrate);
         case TF_BITOP:
-            return(global_bitopstruct.bitopspersec);
+            return(global_bitopstruct.realrate);
         case TF_FPEMU:
             return(global_emfloatstruct.emflops);
         case TF_FFPU:
