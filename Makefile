@@ -104,7 +104,7 @@ else
     CC=gcc
     CFLAGS = -s -static -Wall -O3 -fomit-frame-pointer -funroll-loops
     DEFINES= -DLINUX $(NO_UNAME)
-    LIBS= -lm -lpthread
+    LIBS= -lm -lpthread -lrt
 endif
 
 
