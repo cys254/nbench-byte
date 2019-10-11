@@ -173,7 +173,7 @@
 ** a StartStopwatch() and StopStopwatch() call.
 ** The idea is to reduce error buildup.
 */
-#define MINIMUM_ITERATION_SECONDS 0.01
+#define MINIMUM_ITERATION_SECONDS 0.1
 
 /*
 ** MINIMUM_SECONDS

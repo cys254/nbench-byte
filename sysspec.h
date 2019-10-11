@@ -183,6 +183,8 @@ unsigned long TicksToSecs(unsigned long tickamount);
 
 double TicksToFracSecs(unsigned long tickamount);
 
+void InitStopWatch();
+
 void StartStopWatch(StopWatchStruct *stopwatch);
 
 void StopStopWatch(StopWatchStruct *stopwatch);

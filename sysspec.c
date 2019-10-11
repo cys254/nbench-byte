@@ -52,6 +52,9 @@
 ** Global parameters.
 */
 int global_align;		/* Memory alignment */
+#ifdef CLOCK_GETTIME
+int global_realtime_cid = CLOCK_MONOTONIC;  /* Clock ID used in clock_gettime */
+#endif
 
 /*
 ** Following global is the memory array.  This is used to store
@@ -934,6 +937,43 @@ double TicksToFracSecs(unsigned long tickamount)
 
 #endif
 
+/**********************************************
+** InitStopWatch
+** This function to be called when upon startup
+** When CLOCK_GETTIME is enabled, it will
+** a) choose realtime clock between CLOCK_MONOTONIC(preferred)
+**    or CLOCK_REALTIME
+** b) determine minimum iteration time based on clock resolution
+**    aim to reduce clock rounding error
+*/
+void InitStopWatch()
+{
+#ifdef CLOCK_GETTIME
+    int err;
+    struct timespec ts;
+    float timeres;
+
+    global_realtime_cid = CLOCK_MONOTONIC;
+    err = clock_getres(global_realtime_cid, &ts);
+    if (err) {
+        // if CLOCK_MONOTONIC is not supported, fall back to CLOCK_REALTIME
+        global_realtime_cid = CLOCK_REALTIME;
+        err = clock_getres(global_realtime_cid, &ts);
+    }
+
+    if (!err) {
+        /*
+      .  * determine minimum iteration time to be 50x clock resolution but cap to 1s
+        */
+        timeres = ts.tv_sec + ts.tv_nsec * 1e-9;
+        global_min_itersec = timeres * 50.0;
+        if (global_min_itersec > 0.1) {
+            global_min_itersec = 0.1;
+        }
+    }
+#endif
+}
+
 /****************************
 ** StartStopWatch
 ** Starts a software stopwatch.
@@ -955,7 +995,7 @@ void StartStopWatch(StopWatchStruct *stopwatch)
     stopwatch->ticks = (unsigned long)win31tinfo.dwmsSinceStart;
 #elif defined(CLOCK_GETTIME)
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, &stopwatch->cputime);
-    clock_gettime(CLOCK_MONOTONIC, &stopwatch->realtime);
+    clock_gettime(global_realtime_cid, &stopwatch->realtime);
 #else
     stopwatch->ticks = (unsigned long)clock();
 #endif
@@ -982,7 +1022,7 @@ void StopStopWatch(StopWatchStruct *stopwatch)
 #elif defined(CLOCK_GETTIME)
     struct timespec cputime, realtime;
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, &cputime);
-    clock_gettime(CLOCK_MONOTONIC, &realtime);
+    clock_gettime(global_realtime_cid, &realtime);
     stopwatch->cpusecs  += (double)(cputime.tv_sec  - stopwatch->cputime.tv_sec)  + (double)(cputime.tv_nsec  - stopwatch->cputime.tv_nsec)*1e-9;
     stopwatch->realsecs += (double)(realtime.tv_sec - stopwatch->realtime.tv_sec) + (double)(realtime.tv_nsec - stopwatch->realtime.tv_nsec)*1e-9;
 #elif defined(CLOCKWCT)

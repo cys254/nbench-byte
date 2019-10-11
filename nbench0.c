@@ -193,6 +193,8 @@ int main(int argc, char *argv[])
     fpindex=(double)1.0;
     mem_array_ents=0;               /* Nothing in mem array */
 
+    InitStopWatch();
+
     /*
      ** We presume all tests will be run unless told
      ** otherwise

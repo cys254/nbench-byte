@@ -534,8 +534,8 @@ GLOBALMINITERSEC=<n>
 This overrides the default global_min_itersec value (defined in NBENCH1.H).
 The global_min_itersec value is defined as the minimum number of seconds
 per iteration of a particular benchmark. For example, if global_min_time is
-set to 0.01 and the numeric sort benchmark is run; each iteration MUST take
-at least 0.01 second, or the system will expand the work-per-iteration.
+set to 0.1 and the numeric sort benchmark is run; each iteration MUST take
+at least 0.1 second, or the system will expand the work-per-iteration.
 
 MINSECONDS=<n>
 
