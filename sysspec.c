@@ -994,8 +994,12 @@ void StartStopWatch(StopWatchStruct *stopwatch)
     _Call16(lpfn,"p",&stopwatch->win31tinfo);
     stopwatch->ticks = (unsigned long)win31tinfo.dwmsSinceStart;
 #elif defined(CLOCK_GETTIME)
-    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &stopwatch->cputime);
+    int err;
     clock_gettime(global_realtime_cid, &stopwatch->realtime);
+    err = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &stopwatch->cputime);
+    if (err) {
+        stopwatch->ticks = (unsigned long)clock();
+    }
 #else
     stopwatch->ticks = (unsigned long)clock();
 #endif
@@ -1020,11 +1024,18 @@ void StopStopWatch(StopWatchStruct *stopwatch)
     stopwatch->cpusecs += (double)((unsigned long)win31tinfo.dwmsSinceStart-stopwatch->ticks)*1e-3;
     stopwatch->realsecs = stopwatch->cpusecs;
 #elif defined(CLOCK_GETTIME)
+    int err;
     struct timespec cputime, realtime;
-    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &cputime);
+
     clock_gettime(global_realtime_cid, &realtime);
-    stopwatch->cpusecs  += (double)(cputime.tv_sec  - stopwatch->cputime.tv_sec)  + (double)(cputime.tv_nsec  - stopwatch->cputime.tv_nsec)*1e-9;
     stopwatch->realsecs += (double)(realtime.tv_sec - stopwatch->realtime.tv_sec) + (double)(realtime.tv_nsec - stopwatch->realtime.tv_nsec)*1e-9;
+
+    err = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &cputime);
+    if (err) {
+        stopwatch->cpusecs += (double)((unsigned long)clock() - stopwatch->ticks)/(double)CLOCKS_PER_SEC;
+    } else {
+        stopwatch->cpusecs  += (double)(cputime.tv_sec  - stopwatch->cputime.tv_sec)  + (double)(cputime.tv_nsec  - stopwatch->cputime.tv_nsec)*1e-9;
+    }
 #elif defined(CLOCKWCT)
     stopwatch->cpusecs += (double)((unsigned long)clock() - stopwatch->ticks)/(double)CLK_TCK;
     stopwatch->realsecs = stopwatch->cpusecs;
