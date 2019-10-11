@@ -19,12 +19,7 @@
 ** Rick Grehan, BYTE Magazine
 **
 ** Creation:
-** Revision: 3/95;10/95
-**  10/95 - Removed allocation that was taking place inside
-**   the LU Decomposition benchmark. Though it didn't seem to
-**   make a difference on systems we ran it on, it nonetheless
-**   removes an operating system dependency that probably should
-**   not have been there.
+** Revision: 3/95
 **
 ** DISCLAIMER
 ** The source, executable, and documentation files that comprise
