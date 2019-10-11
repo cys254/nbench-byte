@@ -35,6 +35,16 @@
 ** FLOATING-POINT EMULATION **
 *****************************/
 
+/*
+** TYPEDEFS
+*/
+
+typedef struct {
+    InternalFPF *abase;             /* Base of A array */
+    InternalFPF *bbase;             /* Base of B array */
+    InternalFPF *cbase;             /* Base of C array */
+} EmFloatData;
+
 void DoEmFloatAdjust(TestControlStruct *locemfloatstruct);
 static void *EmFloatFunc(void *data);
 
@@ -80,6 +90,62 @@ void DoEmFloat(void)
 #endif
 }
 
+/*********************
+** EmFloatDataSetup **
+**********************
+** Setup data for test
+*/
+void EmFloatDataSetup(TestControlStruct *locemfloatstruct, EmFloatData *emfloatdata)
+{
+    int systemerror;                /* For holding error code */
+
+    emfloatdata->abase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
+                &systemerror);
+    if(systemerror)
+    {
+        ReportError(locemfloatstruct->errorcontext,systemerror);
+        ErrorExit();
+    }
+
+    emfloatdata->bbase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
+                &systemerror);
+    if(systemerror)
+    {
+        ReportError(locemfloatstruct->errorcontext,systemerror);
+        FreeMemory((farvoid *)emfloatdata->abase,&systemerror);
+        ErrorExit();
+    }
+
+    emfloatdata->cbase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
+                &systemerror);
+    if(systemerror)
+    {
+        ReportError(locemfloatstruct->errorcontext,systemerror);
+        FreeMemory((farvoid *)emfloatdata->abase,&systemerror);
+        FreeMemory((farvoid *)emfloatdata->bbase,&systemerror);
+        ErrorExit();
+    }
+
+    /*
+     ** Set up the arrays
+     */
+    SetupCPUEmFloatArrays(emfloatdata->abase,emfloatdata->bbase,emfloatdata->cbase,locemfloatstruct->arraysize);
+}
+
+/***********************
+** EmFloatDataCleanup **
+************************
+** Cleanup data for test
+*/
+void EmFloatDataCleanup(EmFloatData *emfloatdata)
+{
+    int systemerror;                /* For holding error code */
+
+    FreeMemory((farvoid *)emfloatdata->abase,&systemerror);
+    FreeMemory((farvoid *)emfloatdata->bbase,&systemerror);
+    FreeMemory((farvoid *)emfloatdata->cbase,&systemerror);
+}
+
 /********************
 ** DoEmFloatAdjust **
 *********************
@@ -92,43 +158,10 @@ void DoEmFloatAdjust(TestControlStruct *locemfloatstruct)
      */
     if(locemfloatstruct->adjust==0)
     {
-        InternalFPF *abase;             /* Base of A array */
-        InternalFPF *bbase;             /* Base of B array */
-        InternalFPF *cbase;             /* Base of C array */
-        int systemerror;                /* For holding error code */
+        EmFloatData emfloatdata;        /* Data for EmFloat testing */
         ulong loops;                    /* # of loops */
 
-        abase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
-                &systemerror);
-        if(systemerror)
-        {
-            ReportError(locemfloatstruct->errorcontext,systemerror);
-            ErrorExit();
-        }
-
-        bbase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
-                &systemerror);
-        if(systemerror)
-        {
-            ReportError(locemfloatstruct->errorcontext,systemerror);
-            FreeMemory((farvoid *)abase,&systemerror);
-            ErrorExit();
-        }
-
-        cbase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
-                &systemerror);
-        if(systemerror)
-        {
-            ReportError(locemfloatstruct->errorcontext,systemerror);
-            FreeMemory((farvoid *)abase,&systemerror);
-            FreeMemory((farvoid *)bbase,&systemerror);
-            ErrorExit();
-        }
-
-        /*
-         ** Set up the arrays
-         */
-        SetupCPUEmFloatArrays(abase,bbase,cbase,locemfloatstruct->arraysize);
+        EmFloatDataSetup(locemfloatstruct, &emfloatdata);
 
         locemfloatstruct->loops=0;
 
@@ -141,7 +174,7 @@ void DoEmFloatAdjust(TestControlStruct *locemfloatstruct)
         {
             StopWatchStruct stopwatch;
             ResetStopWatch(&stopwatch);
-            DoEmFloatIteration(abase,bbase,cbase,
+            DoEmFloatIteration(emfloatdata.abase,emfloatdata.bbase,emfloatdata.cbase,
                 locemfloatstruct->arraysize,
                 loops, &stopwatch);
             if(stopwatch.realsecs>global_min_itersec)
@@ -154,9 +187,7 @@ void DoEmFloatAdjust(TestControlStruct *locemfloatstruct)
         /*
          ** Clean up
          */
-        FreeMemory((farvoid *)abase,&systemerror);
-        FreeMemory((farvoid *)bbase,&systemerror);
-        FreeMemory((farvoid *)cbase,&systemerror);
+        EmFloatDataCleanup(&emfloatdata);
 
         /*
          ** Verify that selft adjustment code worked.
@@ -184,47 +215,14 @@ void DoEmFloatAdjust(TestControlStruct *locemfloatstruct)
 void *EmFloatFunc(void *data)
 {
     TestThreadData *testdata;       /* test data passed from thread func */
-    InternalFPF *abase;             /* Base of A array */
-    InternalFPF *bbase;             /* Base of B array */
-    InternalFPF *cbase;             /* Base of C array */
+    EmFloatData emfloatdata;        /* Data for EmFloat testing */
     StopWatchStruct stopwatch;      /* Stop watch to time the test */
-    int systemerror;                /* For holding error code */
     TestControlStruct *locemfloatstruct;        /* Local structure */
 
     testdata = (TestThreadData*)data;
     locemfloatstruct=testdata->control;
 
-    abase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
-            &systemerror);
-    if(systemerror)
-    {
-        ReportError(locemfloatstruct->errorcontext,systemerror);
-        ErrorExit();
-    }
-
-    bbase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
-            &systemerror);
-    if(systemerror)
-    {
-        ReportError(locemfloatstruct->errorcontext,systemerror);
-        FreeMemory((farvoid *)abase,&systemerror);
-        ErrorExit();
-    }
-
-    cbase=(InternalFPF *)AllocateMemory(locemfloatstruct->arraysize*sizeof(InternalFPF),
-            &systemerror);
-    if(systemerror)
-    {
-        ReportError(locemfloatstruct->errorcontext,systemerror);
-        FreeMemory((farvoid *)abase,&systemerror);
-        FreeMemory((farvoid *)bbase,&systemerror);
-        ErrorExit();
-    }
-
-    /*
-     ** Set up the arrays
-     */
-    SetupCPUEmFloatArrays(abase,bbase,cbase,locemfloatstruct->arraysize);
+    EmFloatDataSetup(locemfloatstruct, &emfloatdata);
 
     /*
      ** All's well if we get here.  Repeatedly perform floating
@@ -236,7 +234,7 @@ void *EmFloatFunc(void *data)
     ResetStopWatch(&stopwatch);
 
     do {
-        DoEmFloatIteration(abase,bbase,cbase,
+        DoEmFloatIteration(emfloatdata.abase,emfloatdata.bbase,emfloatdata.cbase,
                 locemfloatstruct->arraysize,
                 locemfloatstruct->loops,&stopwatch);
         testdata->result.iterations+=(double)locemfloatstruct->loops;
@@ -246,9 +244,7 @@ void *EmFloatFunc(void *data)
      ** Clean up, calculate results, and go home.
      ** Also, indicate that adjustment is done.
      */
-    FreeMemory((farvoid *)abase,&systemerror);
-    FreeMemory((farvoid *)bbase,&systemerror);
-    FreeMemory((farvoid *)cbase,&systemerror);
+    EmFloatDataCleanup(&emfloatdata);
 
     testdata->result.cpusecs = stopwatch.cpusecs;
     testdata->result.realsecs = stopwatch.realsecs;

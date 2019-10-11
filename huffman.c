@@ -225,9 +225,9 @@ void DoHuffmanAdjust(TestControlStruct *lochuffstruct)
          ** # of loops and increasing the loop count until we
          ** get a number of loops that we can use.
          */
-        for(lochuffstruct->loops=100L;
+        for(lochuffstruct->loops=1L;
                 lochuffstruct->loops<MAXHUFFLOOPS;
-                lochuffstruct->loops+=10L) {
+                lochuffstruct->loops*=2L) {
             ResetStopWatch(&stopwatch);
             DoHuffIteration(huffdata.plaintext,
                         huffdata.comparray,

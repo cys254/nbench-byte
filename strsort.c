@@ -169,7 +169,7 @@ void DoStringSortAdjust(TestControlStruct *strsortstruct)
             if(stopwatch.realsecs > global_min_itersec)
                 break;          /* We're ok...exit */
 
-            strsortstruct->numarrays+=1;
+            strsortstruct->numarrays*=2;
         }
         strsortstruct->adjust=1;
     }

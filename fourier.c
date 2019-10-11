@@ -160,7 +160,7 @@ void DoFourierAdjust(TestControlStruct *locfourierstruct)
             /*
              ** Make bigger arrays and try again.
              */
-            locfourierstruct->arraysize+=50L;
+            locfourierstruct->arraysize*=2L;
         }
         locfourierstruct->adjust=1;
     }

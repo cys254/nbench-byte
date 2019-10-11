@@ -242,9 +242,9 @@ void DoIDEAAdjust(TestControlStruct *locideastruct)
          ** # of loops and increasing the loop count until we
          ** get a number of loops that we can use.
          */
-        for(locideastruct->loops=100L;
+        for(locideastruct->loops=1L;
                 locideastruct->loops<MAXIDEALOOPS;
-                locideastruct->loops+=10L) {
+                locideastruct->loops*=2L) {
             ResetStopWatch(&stopwatch);
             DoIDEAIteration(ideadata.plain1,ideadata.crypt1,ideadata.plain2,
                         locideastruct->arraysize,

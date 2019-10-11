@@ -203,7 +203,7 @@ void DoNNET(void)
          */
         for(locnnetstruct->loops=1L;
                 locnnetstruct->loops<MAXNNETLOOPS;
-                locnnetstruct->loops++)
+                locnnetstruct->loops*=2L)
         {
             randnum((int32)3);
             ResetStopWatch(&stopwatch);

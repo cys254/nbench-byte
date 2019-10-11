@@ -160,7 +160,8 @@ void DoNumSortAdjust(TestControlStruct *numsortstruct)
             FreeMemory((farvoid *)arraybase,&systemerror);
             if (stopwatch.realsecs > global_min_itersec)
                 break;          /* We're ok...exit */
-            if(numsortstruct->numarrays++>NUMNUMARRAYS)
+            numsortstruct->numarrays *= 2;
+            if(numsortstruct->numarrays>NUMNUMARRAYS)
             {
                 printf("CPU:NSORT -- NUMNUMARRAYS hit.\n");
                 ErrorExit();

@@ -280,7 +280,7 @@ void DoLUAdjust(TestControlStruct *loclustruct)
         LUDataSetup1(&ludata);
 
         loclustruct->numarrays=0;
-        for(i=1;i<=MAXLUARRAYS;i++)
+        for(i=1;i<=MAXLUARRAYS;i*=2)
         {
             LUDataSetup2(loclustruct, &ludata, i+1);
 

@@ -184,7 +184,7 @@ void DoAssignAdjust(TestControlStruct *locassignstruct)
             if(stopwatch.realsecs>global_min_itersec)
                 break;          /* We're ok...exit */
 
-            locassignstruct->numarrays++;
+            locassignstruct->numarrays*=2;
         }
         /*
          ** Be sure to show that we don't have to rerun adjustment code.

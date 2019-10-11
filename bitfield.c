@@ -116,9 +116,9 @@ void DoBitopsAdjust(TestControlStruct *locbitopstruct)
         }
 
         /*
-         ** Initialize bitfield operations array to [2,30] elements
+         ** Initialize bitfield operations array to [3] elements
          */
-        locbitopstruct->bitoparraysize=30L;
+        locbitopstruct->bitoparraysize=3L;
 
         while(1)
         {
@@ -148,7 +148,7 @@ void DoBitopsAdjust(TestControlStruct *locbitopstruct)
                     &stopwatch);
 #ifdef DEBUG
 #ifdef LINUX
-            if (locbitopstruct->bitoparraysize==30L){
+            if (locbitopstruct->bitoparraysize==3L){
                 /* this is the first loop, write a debug file */
                 FILE *file;
                 unsigned long *running_base; /* same as farulong */
@@ -176,8 +176,11 @@ void DoBitopsAdjust(TestControlStruct *locbitopstruct)
 
             if (stopwatch.realsecs>global_min_itersec) break;      /* We're ok...exit */
 
-            locbitopstruct->bitoparraysize+=100L;
+            locbitopstruct->bitoparraysize*=2;
         }
+
+        FreeMemory((farvoid *)bitarraybase,&systemerror);
+
         /*
          ** Set adjustment flag to show that we don't have
          ** to do self adjusting in the future.
