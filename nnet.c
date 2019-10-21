@@ -318,7 +318,7 @@ static void DoNNetIteration(NNetData *nnetdata, ulong nloops, StopWatchStruct *s
             nnetdata->learned = check_out_error(nnetdata);
         }
 #ifdef DEBUG
-        printf("Learned in %d passes\n",numpasses);
+        printf("Learned in %d passes\n",nnetdata->numpasses);
 #endif
     }
     StopStopWatch(stopwatch);

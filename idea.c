@@ -368,9 +368,9 @@ static void DoIDEAIteration(faruchar *plain1,
 static u16 mul(register u16 a, register u16 b)
 {
     register u32 p;
-    if(a)
-    {       if(b)
-        {       p=(u32)(a*b);
+    if(a) {
+       if(b) {
+            p=(u32)a*b;
             b=low16(p);
             a=(u16)(p>>16);
             return(b-a+(b<a));
