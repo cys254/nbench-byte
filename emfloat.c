@@ -66,13 +66,7 @@ void DoEmFloat(void)
     /*
      ** Test the emulation routines.
      */
-#ifdef DEBUG
-#endif
 
-    /*
-     ** See if we need to do self-adjusting code.
-     */
-    DoEmFloatAdjust(locemfloatstruct);
     /*
      ** All's well if we get here.  Repeatedly perform floating
      ** tests until the accumulated time is greater than the
@@ -146,65 +140,6 @@ void EmFloatDataCleanup(EmFloatData *emfloatdata)
     FreeMemory((farvoid *)emfloatdata->cbase,&systemerror);
 }
 
-/********************
-** DoEmFloatAdjust **
-*********************
-** Self adjust
-*/
-void DoEmFloatAdjust(TestControlStruct *locemfloatstruct)
-{
-    /*
-     ** See if we need to do self-adjusting code.
-     */
-    if(locemfloatstruct->adjust==0)
-    {
-        EmFloatData emfloatdata;        /* Data for EmFloat testing */
-        ulong loops;                    /* # of loops */
-
-        EmFloatDataSetup(locemfloatstruct, &emfloatdata);
-
-        locemfloatstruct->loops=0;
-
-        /*
-         ** Do an iteration of the tests.  If the elapsed time is
-         ** less than minimum, increase the loop count and try
-         ** again.
-         */
-        for(loops=1;loops<CPUEMFLOATLOOPMAX;loops+=loops)
-        {
-            StopWatchStruct stopwatch;
-            ResetStopWatch(&stopwatch);
-            DoEmFloatIteration(emfloatdata.abase,emfloatdata.bbase,emfloatdata.cbase,
-                locemfloatstruct->arraysize,
-                loops, &stopwatch);
-            if(stopwatch.realsecs>global_min_itersec)
-            {
-                locemfloatstruct->loops=loops;
-                break;
-            }
-        }
-
-        /*
-         ** Clean up
-         */
-        EmFloatDataCleanup(&emfloatdata);
-
-        /*
-         ** Verify that selft adjustment code worked.
-         */
-        if(locemfloatstruct->loops==0)
-        {
-            printf("CPU:EMFPU -- CMPUEMFLOATLOOPMAX limit hit\n");
-            ErrorExit();
-        }
-
-        /*
-         ** indicate that adjustment is done.
-         */
-        locemfloatstruct->adjust=1;
-    }
-}
-
 /****************
 ** EmFloatFunc **
 *****************
@@ -236,8 +171,8 @@ void *EmFloatFunc(void *data)
     do {
         DoEmFloatIteration(emfloatdata.abase,emfloatdata.bbase,emfloatdata.cbase,
                 locemfloatstruct->arraysize,
-                locemfloatstruct->loops,&stopwatch);
-        testdata->result.iterations+=(double)locemfloatstruct->loops;
+                &stopwatch);
+        testdata->result.iterations+=(double)1.0;
     } while(stopwatch.realsecs<locemfloatstruct->request_secs);
 
     /*
@@ -292,12 +227,10 @@ void SetupCPUEmFloatArrays(InternalFPF *abase,
     randnum((int32)13);
 
     for(i=0;i<arraysize;i++)
-    {/*       LongToInternalFPF(randwc(50000L),&locFPF1); */
+    {
         Int32ToInternalFPF(randwc((int32)50000),&locFPF1);
-        /*       LongToInternalFPF(randwc(50000L)+1L,&locFPF2); */
         Int32ToInternalFPF(randwc((int32)50000)+(int32)1,&locFPF2);
         DivideInternalFPF(&locFPF1,&locFPF2,abase+i);
-        /*       LongToInternalFPF(randwc(50000L)+1L,&locFPF2); */
         Int32ToInternalFPF(randwc((int32)50000)+(int32)1,&locFPF2);
         DivideInternalFPF(&locFPF1,&locFPF2,bbase+i);
     }
@@ -314,20 +247,14 @@ void SetupCPUEmFloatArrays(InternalFPF *abase,
 void DoEmFloatIteration(InternalFPF *abase,
                 InternalFPF *bbase,
                 InternalFPF *cbase,
-                ulong arraysize, ulong loops, StopWatchStruct *stopwatch)
+                ulong arraysize, StopWatchStruct *stopwatch)
 {
     static uchar jtable[16] = {0,0,0,0,1,1,1,1,2,2,2,2,2,3,3,3};
     ulong i;
-#ifdef DEBUG
-    int number_of_loops;
-#endif
     /*
      ** Begin timing
      */
     StartStopWatch(stopwatch);
-#ifdef DEBUG
-    number_of_loops=loops-1; /* the index of the first loop we run */
-#endif
 
     /*
      ** Each pass through the array performs operations in
@@ -335,7 +262,6 @@ void DoEmFloatIteration(InternalFPF *abase,
      **   4 adds, 4 subtracts, 5 multiplies, 3 divides
      ** (adds and subtracts being nearly the same operation)
      */
-    while(loops--)
     {
         for(i=0;i<arraysize;i++)
             switch(jtable[i % 16])
@@ -361,13 +287,12 @@ void DoEmFloatIteration(InternalFPF *abase,
                             cbase+i);
                     break;
             }
-#ifdef DEBUG
+#ifdef DEBUG1
         {
             ulong j[8];   /* we test 8 entries */
             int k;
             ulong i;
             char buffer[1024];
-            if (number_of_loops==loops) /* the first loop */
             {
                 j[0]=(ulong)2;
                 j[1]=(ulong)6;
@@ -1363,7 +1288,7 @@ normalize(dest);
 return;
 }
 
-#ifdef DEBUG
+#ifdef DEBUG1
 /************************
 ** InternalFPFToString **
 *************************

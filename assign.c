@@ -73,19 +73,21 @@ typedef struct {
 void DoAssign(void);
 void DoAssignAdjust(TestControlStruct *locassignstruct);
 void* AssignFunc(void *data);
-static void DoAssignIteration(farlong *arraybase,
-		ulong numarrays,StopWatchStruct *stopwatch);
-static void LoadAssignArrayWithRand(farlong *arraybase,
-		ulong numarrays);
+static ulong DoAssignIteration(farlong *arraybase,
+		StopWatchStruct *stopwatch);
+static void LoadAssignArrayWithRand(farlong *arraybase);
 static void LoadAssign(farlong arraybase[][ASSIGNCOLS]);
-static void CopyToAssign(farlong arrayfrom[][ASSIGNCOLS],
-		long arrayto[][ASSIGNCOLS]);
-static void Assignment(farlong arraybase[][ASSIGNCOLS]);
+static ulong Assignment(farlong arraybase[][ASSIGNCOLS]);
 static void calc_minimum_costs(long tableau[][ASSIGNCOLS]);
 static int first_assignments(long tableau[][ASSIGNCOLS],
 		short assignedtableau[][ASSIGNCOLS]);
 static void second_assignments(long tableau[][ASSIGNCOLS],
 		short assignedtableau[][ASSIGNCOLS]);
+
+/*
+** global data
+*/
+short assignedtableau[ASSIGNROWS][ASSIGNCOLS];
 
 
 /*************
@@ -116,76 +118,9 @@ void DoAssign(void)
     locassignstruct=&global_assignstruct;
 
     /*
-     ** See if we need to do self adjustment code.
-     */
-    DoAssignAdjust(locassignstruct);
-
-    /*
      ** All's well if we get here.  Do the tests.
      */
     run_bench_with_concurrency(locassignstruct, AssignFunc);
-}
-
-/*******************
-** DoAssignAdjust **
-********************
-** Perform self adjust
-*/
-void DoAssignAdjust(TestControlStruct *locassignstruct)
-{
-    /*
-     ** See if we need to do self adjustment code.
-     */
-    if(locassignstruct->adjust==0)
-    {
-        farlong *arraybase;
-        int systemerror;
-        StopWatchStruct stopwatch;             /* Stop watch to time the test */
-        /*
-         ** Self-adjustment code.  The system begins by working on 1
-         ** array.  If it does that in no time, then two arrays
-         ** are built.  This process continues until
-         ** enough arrays are built to handle the tolerance.
-         */
-        locassignstruct->numarrays=1;
-        while(1)
-        {
-            /*
-             ** Allocate space for arrays
-             */
-            arraybase=(farlong *) AllocateMemory(sizeof(long)*
-                    ASSIGNROWS*ASSIGNCOLS*locassignstruct->numarrays,
-                    &systemerror);
-            if(systemerror)
-            {
-                ReportError(locassignstruct->errorcontext,systemerror);
-                FreeMemory((farvoid *)arraybase,
-                        &systemerror);
-                ErrorExit();
-            }
-
-            /*
-             ** Do an iteration of the assignment alg.  If the
-             ** elapsed time is less than or equal to the permitted
-             ** minimum, then allocate for more arrays and
-             ** try again.
-             */
-            ResetStopWatch(&stopwatch);
-            DoAssignIteration(arraybase,
-                        locassignstruct->numarrays,&stopwatch);
-
-            FreeMemory((farvoid *)arraybase, &systemerror);
-
-            if(stopwatch.realsecs>global_min_itersec)
-                break;          /* We're ok...exit */
-
-            locassignstruct->numarrays*=2;
-        }
-        /*
-         ** Be sure to show that we don't have to rerun adjustment code.
-         */
-        locassignstruct->adjust=1;
-    }
 }
 
 /***************
@@ -213,6 +148,7 @@ void* AssignFunc(void *data)
     StopWatchStruct stopwatch;             /* Stop watch to time the test */
     farlong *arraybase;     /* Base pointers of array */
     int systemerror;        /* For holding error codes */
+    ulong cnt = 0;
 
     testdata = (TestThreadData *)data;
     locassignstruct = testdata->control;
@@ -221,7 +157,7 @@ void* AssignFunc(void *data)
      ** Allocate space for arrays
      */
     arraybase=(farlong *)AllocateMemory(sizeof(long)*
-                ASSIGNROWS*ASSIGNCOLS*locassignstruct->numarrays,
+                ASSIGNROWS*ASSIGNCOLS,
                 &systemerror);
     if(systemerror)
     {
@@ -238,10 +174,13 @@ void* AssignFunc(void *data)
     ResetStopWatch(&stopwatch);
 
     do {
-        DoAssignIteration(arraybase,
-                locassignstruct->numarrays,&stopwatch);
+        cnt += DoAssignIteration(arraybase, &stopwatch);
         testdata->result.iterations+=(double)1.0;
     } while(stopwatch.realsecs<locassignstruct->request_secs);
+
+#ifdef DEBUG
+    printf("cnt=%lu\n", cnt);
+#endif 
 
     /*
      ** Clean up, calculate results, and go home.  Be sure to
@@ -261,11 +200,10 @@ void* AssignFunc(void *data)
 ** This routine executes one iteration of the assignment test.
 ** It returns the number of ticks elapsed in the iteration.
 */
-static void DoAssignIteration(farlong *arraybase,
-    ulong numarrays, StopWatchStruct *stopwatch)
+static ulong DoAssignIteration(farlong *arraybase, StopWatchStruct *stopwatch)
 {
     longptr abase;                  /* local pointer */
-    ulong i;
+    ulong cnt;
 
     /*
      ** Set up local pointer
@@ -275,7 +213,7 @@ static void DoAssignIteration(farlong *arraybase,
     /*
      ** Load up the arrays with a random table.
      */
-    LoadAssignArrayWithRand(arraybase,numarrays);
+    LoadAssignArrayWithRand(arraybase);
 
     /*
      ** Start the stopwatch
@@ -285,17 +223,17 @@ static void DoAssignIteration(farlong *arraybase,
     /*
      ** Execute assignment algorithms
      */
-    for(i=0;i<numarrays;i++)
-    {       /* abase.ptrs.p+=i*ASSIGNROWS*ASSIGNCOLS; */
+    {
         /* Fixed  by Eike Dierks */
-        Assignment(*abase.ptrs.ap);
-        abase.ptrs.p+=ASSIGNROWS*ASSIGNCOLS;
+        cnt = Assignment(*abase.ptrs.ap);
     }
 
     /*
      ** Get elapsed time
      */
     StopStopWatch(stopwatch);
+
+    return cnt;
 }
 
 /****************************
@@ -304,11 +242,9 @@ static void DoAssignIteration(farlong *arraybase,
 ** Load the assignment arrays with random numbers.  All positive.
 ** These numbers represent costs.
 */
-static void LoadAssignArrayWithRand(farlong *arraybase,
-    ulong numarrays)
+static void LoadAssignArrayWithRand(farlong *arraybase)
 {
     longptr abase,abase1;   /* Local for array pointer */
-    ulong i;
 
     /*
      ** Set local array pointer
@@ -321,13 +257,6 @@ static void LoadAssignArrayWithRand(farlong *arraybase,
      ** others.
      */
     LoadAssign(*(abase.ptrs.ap));
-    if(numarrays>1)
-        for(i=1;i<numarrays;i++)
-        {     /* abase1.ptrs.p+=i*ASSIGNROWS*ASSIGNCOLS; */
-            /* Fixed  by Eike Dierks */
-            abase1.ptrs.p+=ASSIGNROWS*ASSIGNCOLS;
-            CopyToAssign(*(abase.ptrs.ap),*(abase1.ptrs.ap));
-        }
 
     return;
 }
@@ -345,7 +274,6 @@ static void LoadAssign(farlong arraybase[][ASSIGNCOLS])
     /*
      ** Reset random number generator so things repeat.
      */
-    /* randnum(13L); */
     randnum((int32)13);
 
     for(i=0;i<ASSIGNROWS;i++)
@@ -357,31 +285,12 @@ static void LoadAssign(farlong arraybase[][ASSIGNCOLS])
     return;
 }
 
-/*****************
-** CopyToAssign **
-******************
-** Copy the contents of one array to another.  This is called by
-** the routine that builds the initial array, and is used to copy
-** the contents of the intial array into all following arrays.
-*/
-static void CopyToAssign(farlong arrayfrom[ASSIGNROWS][ASSIGNCOLS],
-        farlong arrayto[ASSIGNROWS][ASSIGNCOLS])
-{
-    ushort i,j;
-
-    for(i=0;i<ASSIGNROWS;i++)
-        for(j=0;j<ASSIGNCOLS;j++)
-            arrayto[i][j]=arrayfrom[i][j];
-
-    return;
-}
-
 /***************
 ** Assignment **
 ***************/
-static void Assignment(farlong arraybase[][ASSIGNCOLS])
+static ulong Assignment(farlong arraybase[][ASSIGNCOLS])
 {
-    short assignedtableau[ASSIGNROWS][ASSIGNCOLS];
+    ulong cnt = 0;
 
     /*
      ** First, calculate minimum costs
@@ -394,9 +303,10 @@ static void Assignment(farlong arraybase[][ASSIGNCOLS])
      */
     while(first_assignments(arraybase,assignedtableau)!=ASSIGNROWS)
     {         second_assignments(arraybase,assignedtableau);
+        cnt++;
     }
 
-#ifdef DEBUG
+#ifdef DEBUG1
     {
         int i,j;
         printf("\nColumn choices for each row\n");
@@ -410,7 +320,7 @@ static void Assignment(farlong arraybase[][ASSIGNCOLS])
     }
 #endif
 
-    return;
+    return cnt;
 }
 
 /***********************

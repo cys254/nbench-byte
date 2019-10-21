@@ -112,51 +112,7 @@ void DoFourierAdjust(TestControlStruct *locfourierstruct)
      */
     if(locfourierstruct->adjust==0)
     {
-        fardouble *abase;               /* Base of A[] coefficients array */
-        fardouble *bbase;               /* Base of B[] coefficients array */
-        int systemerror;                /* For error code */
-        StopWatchStruct stopwatch;
-
         locfourierstruct->arraysize=100L;       /* Start at 100 elements */
-        while(1)
-        {
-
-            abase=(fardouble *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
-                    &systemerror);
-            if(systemerror)
-            {
-                ReportError(locfourierstruct->errorcontext,systemerror);
-                ErrorExit();
-            }
-
-            bbase=(fardouble *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
-                    &systemerror);
-            if(systemerror)
-            {
-                ReportError(locfourierstruct->errorcontext,systemerror);
-                FreeMemory((void *)abase,&systemerror);
-                ErrorExit();
-            }
-            /*
-             ** Do an iteration of the tests.  If the elapsed time is
-             ** less than or equal to the permitted minimum, re-allocate
-             ** larger arrays and try again.
-             */
-            ResetStopWatch(&stopwatch);
-            DoFPUTransIteration(abase,bbase,
-                        locfourierstruct->arraysize,&stopwatch);
-
-            FreeMemory((farvoid *)abase,&systemerror);
-            FreeMemory((farvoid *)bbase,&systemerror);
-
-            if(stopwatch.realsecs>global_min_itersec)
-                break;          /* We're ok...exit */
-
-            /*
-             ** Make bigger arrays and try again.
-             */
-            locfourierstruct->arraysize*=2L;
-        }
         locfourierstruct->adjust=1;
     }
 }
@@ -294,7 +250,7 @@ static void DoFPUTransIteration(fardouble *abase,      /* A coeffs. */
                 2);
 
     }
-#ifdef DEBUG
+#ifdef DEBUG1
     {
         int i;
         printf("\nA[i]=\n");

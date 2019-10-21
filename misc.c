@@ -133,6 +133,7 @@ int32 randnum(int32 lngval)
 */
 void run_bench_with_concurrency(TestControlStruct *testctl, void *(*thread_func)(void *))
 {
+    StopWatchStruct stopwatch;
 #if defined(LINUX) || defined(OSX)
     TestThreadData *testdatas = (TestThreadData *)malloc(sizeof(TestThreadData)*global_concurrency);
     pthread_t *threads = (pthread_t *)malloc(sizeof(pthread_t)*global_concurrency);
@@ -140,6 +141,9 @@ void run_bench_with_concurrency(TestControlStruct *testctl, void *(*thread_func)
 #else
     TestThreadData testdatas[1];
 #endif
+
+    ResetStopWatch(&stopwatch);
+    StartStopWatch(&stopwatch);
 
 #if defined(LINUX) || defined(OSX)
     for (i=1;i<global_concurrency;i++) {
@@ -169,12 +173,13 @@ void run_bench_with_concurrency(TestControlStruct *testctl, void *(*thread_func)
     free(threads);
 #endif
 
+    StopStopWatch(&stopwatch);
+
     testctl->cpurate  = testctl->result.iterations / ( testctl->result.cpusecs / global_concurrency );
     testctl->realrate = testctl->result.iterations / testctl->result.realsecs;
 
 #ifdef DEBUG
-    printf("iterations=%f realsecs=%f realrate=%f cpusecs=%f cpurate=%f\n", testctl->result.iterations,
-              testctl->result.realsecs, testctl->realrate, testctl->result.cpusecs, testctl->cpurate);
+    printf("total=%.3f real=%.3f cpu=%.3f iterations=%.0f\n", stopwatch.realsecs, testctl->result.realsecs, testctl->result.cpusecs, testctl->result.iterations);
 #endif
 }
 

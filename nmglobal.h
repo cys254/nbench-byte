@@ -302,7 +302,6 @@ typedef struct {
 ** before it gives up.  This maximum is dependent on the
 ** amount of memory in the system.
 */
-/*#define NUMNUMARRAYS    1000*/
 #define NUMNUMARRAYS    10000
 
 /*
@@ -356,9 +355,9 @@ typedef struct {
 ** Following field sets the size of the bitfield array (in longs).
 */
 #ifdef LONG64
-#define BITFARRAYSIZE 16384L
+#define BITFARRAYSIZE 8000L
 #else
-#define BITFARRAYSIZE 32768L
+#define BITFARRAYSIZE 16000L
 #endif
 
 /*
@@ -387,7 +386,6 @@ typedef struct {
 ** critical constant, and can be altered if your system is
 ** a real barn-burner.
 */
-/*#define CPUEMFLOATLOOPMAX 50000L*/
 #define CPUEMFLOATLOOPMAX 500000L
 
 /*
@@ -444,7 +442,6 @@ typedef struct {
 /* Following constant defines the max number of loops the
 ** system will attempt. Keeps things from going off into the
 ** weeds. */
-/*#define MAXIDEALOOPS 50000L*/
 #define MAXIDEALOOPS 500000L
 
 /*
@@ -482,7 +479,6 @@ typedef struct {
 ** a critical constant, and can be increased if your
 ** system is a real barn-burner.
 */
-/*#define MAXHUFFLOOPS 50000L*/
 #define MAXHUFFLOOPS 500000L
 
 /*
@@ -515,7 +511,6 @@ typedef struct {
 ** is not a critical constant.  You can alter it if your system
 ** has sufficient horsepower.
 */
-/*#define MAXNNETLOOPS  50000L*/
 #define MAXNNETLOOPS  500000L
 
 /*
@@ -541,7 +536,6 @@ typedef struct {
 ** flagging an error.  It is not a critical constant, and
 ** may be increased if your system has the horsepower.
 */
-/*#define MAXLUARRAYS 1000*/
 #define MAXLUARRAYS 10000
 
 /*

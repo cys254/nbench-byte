@@ -833,7 +833,7 @@ static void set_request_secs(void)
 ***************************
 ** Given a benchmark id that indicates a function, this routine
 ** repeatedly calls that benchmark, seeking to collect and replace
-** scores to get 5 that meet the confidence criteria.
+** scores to get 3 that meet the confidence criteria.
 **
 ** The above is mathematically questionable, as the statistical theory
 ** depends on independent observations, and if we exchange data points
@@ -851,15 +851,15 @@ static int bench_with_confidence(int fid,       /* Function id */
         double *stdev,                  /* Standard deviation */
         ulong *numtries)                /* # of attempts */
 {
-    double myscores[30];            /* Need at least 5 scores, use at most 30 */
+    double myscores[30];            /* Need at least 3 scores, use at most 30 */
     double c_half_interval;         /* Confidence half interval */
     int i;                          /* Index */
     /* double newscore; */          /* For improving confidence interval */
 
     /*
-     ** Get first 5 scores.  Then begin confidence testing.
+     ** Get first 3 scores.  Then begin confidence testing.
      */
-    for (i=0;i<5;i++)
+    for (i=0;i<3;i++)
     {
         (*funcpointer[fid])();
         myscores[i]=getscore(fid);
@@ -867,7 +867,7 @@ static int bench_with_confidence(int fid,       /* Function id */
         printf("score # %d = %g\n", i, myscores[i]);
 #endif
     }
-    *numtries=5;            /* Show 5 attempts */
+    *numtries=3;            /* Show 5 attempts */
 
     /*
      ** The system allows a maximum of 30 tries before it gives

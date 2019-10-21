@@ -128,7 +128,7 @@ typedef NNetData * farnnetdataptr;
 */
 void DoNNET(void);
 void *NNetFunc(void *data);
-static void DoNNetIteration(NNetData *nnetdata, ulong nloops, StopWatchStruct *stopwatch);
+static void DoNNetIteration(NNetData *nnetdata, StopWatchStruct *stopwatch);
 static void do_mid_forward(NNetData *nnetdata, int patt);
 static void do_out_forward(NNetData *nnetdata);
 void display_output(int patt);
@@ -169,46 +169,6 @@ void DoNNET(void)
      ** Link to global data
      */
     locnnetstruct=&global_nnetstruct;
-
-    /*
-     ** See if we need to perform self adjustment loop.
-     */
-    if(locnnetstruct->adjust==0)
-    {
-        StopWatchStruct stopwatch;             /* Stop watch to time the test */
-        NNetData *nnetdata;                    /* NNet test data */
-
-        nnetdata = (NNetData*)malloc(sizeof(NNetData));
-        memset(nnetdata, 0, sizeof(NNetData));
-
-        /*
-         ** Read in the input and output patterns.  We'll do this
-         ** only once here at the beginning.  These values don't
-         ** change once loaded.
-         */
-        if(read_data_file(nnetdata)!=0) {
-            free(nnetdata);
-            ErrorExit();
-        }
-
-        /*
-         ** Do self-adjustment.  This involves initializing the
-         ** # of loops and increasing the loop count until we
-         ** get a number of loops that we can use.
-         */
-        for(locnnetstruct->loops=1L;
-                locnnetstruct->loops<MAXNNETLOOPS;
-                locnnetstruct->loops*=2L)
-        {
-            randnum((int32)3);
-            ResetStopWatch(&stopwatch);
-            DoNNetIteration(nnetdata, locnnetstruct->loops, &stopwatch);
-             
-            if(stopwatch.realsecs>global_min_itersec) break;
-        }
-        locnnetstruct->adjust = 1;
-        free(nnetdata);
-    }
 
     /*
      ** All's well if we get here.  Do the test.
@@ -267,8 +227,8 @@ void *NNetFunc(void *data)
 
     do {
         randnum((int32)3);    /* Gotta do this for Neural Net */
-        DoNNetIteration(nnetdata, locnnetstruct->loops, &stopwatch);
-        testdata->result.iterations+=(double)locnnetstruct->loops;
+        DoNNetIteration(nnetdata, &stopwatch);
+        testdata->result.iterations+=(double)1.0;
     } while(stopwatch.realsecs<locnnetstruct->request_secs);
 
     testdata->result.cpusecs = stopwatch.cpusecs;
@@ -285,19 +245,11 @@ void *NNetFunc(void *data)
 ** Do a single iteration of the neural net benchmark.
 ** By iteration, we mean a "learning" pass.
 */
-static void DoNNetIteration(NNetData *nnetdata, ulong nloops, StopWatchStruct *stopwatch)
+static void DoNNetIteration(NNetData *nnetdata, StopWatchStruct *stopwatch)
 {
     int patt;
 
-    /*
-     ** Run nloops learning cycles.  Notice that, counted with
-     ** the learning cycle is the weight randomization and
-     ** zeroing of changes.  This should reduce clock jitter,
-     ** since we don't have to stop and start the clock for
-     ** each iteration.
-     */
     StartStopWatch(stopwatch);
-    while(nloops--)
     {
         randomize_wts(nnetdata);
         zero_changes(nnetdata);
@@ -317,8 +269,8 @@ static void DoNNetIteration(NNetData *nnetdata, ulong nloops, StopWatchStruct *s
             nnetdata->numpasses ++;
             nnetdata->learned = check_out_error(nnetdata);
         }
-#ifdef DEBUG
-        printf("Learned in %d passes\n",numpasses);
+#ifdef DEBUG1
+        printf("Learned in %d passes\n",nnetdata->numpasses);
 #endif
     }
     StopStopWatch(stopwatch);

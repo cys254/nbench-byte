@@ -95,7 +95,7 @@ void DoIDEAAdjust(TestControlStruct *locideastruct);
 void *IDEAFunc(void *data);
 static void DoIDEAIteration(faruchar *plain1,
 	faruchar *crypt1, faruchar *plain2,
-	ulong arraysize, ulong nloops,
+	ulong arraysize,
 	IDEAkey Z, IDEAkey DK, StopWatchStruct *stopwatch);
 static u16 mul(register u16 a, register u16 b);
 static u16 inv(u16 x);
@@ -117,11 +117,6 @@ void DoIDEA(void)
      ** Link to global data
      */
     locideastruct=&global_ideastruct;
-
-    /*
-     ** See if we need to do self adjustment code.
-     */
-    DoIDEAAdjust(locideastruct);
 
     /*
      ** Run the benchmark
@@ -211,53 +206,6 @@ void IDEADataCleanup(IDEAData *ideadata)
     FreeMemory((farvoid *)ideadata->plain2,&systemerror);
 }
 
-
-/*****************
-** DoIDEAAdjust **
-******************
-** Perform self-adjust
-*/
-void DoIDEAAdjust(TestControlStruct *locideastruct)
-{
-    /*
-     ** See if we need to perform self adjustment loop.
-     */
-    if(locideastruct->adjust==0)
-    {
-        IDEAData ideadata;          /* test data */
-        StopWatchStruct stopwatch;      /* Stop watch to time the test */
-
-        /*
-         ** Setup test data
-         */
-        IDEADataSetup(locideastruct, &ideadata);
-
-        /*
-         ** Do self-adjustment.  This involves initializing the
-         ** # of loops and increasing the loop count until we
-         ** get a number of loops that we can use.
-         */
-        for(locideastruct->loops=1L;
-                locideastruct->loops<MAXIDEALOOPS;
-                locideastruct->loops*=2L) {
-            ResetStopWatch(&stopwatch);
-            DoIDEAIteration(ideadata.plain1,ideadata.crypt1,ideadata.plain2,
-                        locideastruct->arraysize,
-                        locideastruct->loops,
-                        ideadata.Z,ideadata.DK,&stopwatch);
-            if(stopwatch.realsecs>global_min_itersec) break;
-        }
-
-        /*
-         ** Clean up, and go home.  Be sure to
-         ** show that we don't have to rerun adjustment code.
-         */
-        IDEADataCleanup(&ideadata);
-
-        locideastruct->adjust=1;
-    }
-}
-
 /***********
 ** IDEAFunc **
 ************
@@ -288,8 +236,8 @@ void *IDEAFunc(void *data)
     do {
         DoIDEAIteration(ideadata.plain1,ideadata.crypt1,ideadata.plain2,
                 locideastruct->arraysize,
-                locideastruct->loops,ideadata.Z,ideadata.DK,&stopwatch);
-        testdata->result.iterations+=(double)locideastruct->loops;
+                ideadata.Z,ideadata.DK,&stopwatch);
+        testdata->result.iterations+=(double)1.0;
     } while(stopwatch.realsecs<locideastruct->request_secs);
 
     /*
@@ -315,12 +263,10 @@ static void DoIDEAIteration(faruchar *plain1,
             faruchar *crypt1,
             faruchar *plain2,
             ulong arraysize,
-            ulong nloops,
             IDEAkey Z,
             IDEAkey DK,
             StopWatchStruct *stopwatch)
 {
-    register ulong i;
     register ulong j;
 #ifdef DEBUG
     int status=0;
@@ -331,10 +277,6 @@ static void DoIDEAIteration(faruchar *plain1,
      */
     StartStopWatch(stopwatch);
 
-    /*
-     ** Do everything for nloops.
-     */
-    for(i=0;i<nloops;i++)
     {
         for(j=0;j<arraysize;j+=(sizeof(u16)*4))
             cipher_idea((u16 *)(plain1+j),(u16 *)(crypt1+j),Z);       /* Encrypt */
@@ -349,7 +291,7 @@ static void DoIDEAIteration(faruchar *plain1,
             printf("IDEA Error! \n");
             status=1;
         }
-    if (status==0) printf("IDEA: OK\n");
+    /* if (status==0) printf("IDEA: OK\n"); */
 #endif
 
     /*

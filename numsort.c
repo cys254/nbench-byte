@@ -65,11 +65,9 @@ void DoNumSortAdjust(TestControlStruct *numsortstruct);
 static void *NumSortFunc(void *data);
 static void DoNumSortIteration(farlong *arraybase,
 		ulong arraysize,
-		uint numarrays,
         StopWatchStruct *stopwatch);
 static void LoadNumArrayWithRand(farlong *array,
-		ulong arraysize,
-		uint numarrays);
+		ulong arraysize);
 static void NumHeapSort(farlong *array,
 		ulong bottom,
 		ulong top);
@@ -96,11 +94,6 @@ void DoNumSort(void)
     numsortstruct=&global_numsortstruct;
 
     /*
-     ** See if we need to do self adjustment code.
-     */
-    DoNumSortAdjust(numsortstruct);
-
-    /*
      ** Run the benchmark
      */
     run_bench_with_concurrency(numsortstruct, NumSortFunc);
@@ -109,61 +102,6 @@ void DoNumSort(void)
     if (numsort_status==0) printf("Numeric sort: OK\n");
     numsort_status=0;
 #endif
-}
-
-void DoNumSortAdjust(TestControlStruct *numsortstruct)
-{
-    if(numsortstruct->adjust==0)
-    {
-        /*
-         ** Self-adjustment code.  The system begins by sorting 1
-         ** array.  If it does that in no time, then two arrays
-         ** are built and sorted.  This process continues until
-         ** enough arrays are built to handle the tolerance.
-         */
-        farlong *arraybase;     /* Base pointers of array */
-        int systemerror;        /* For holding error codes */
-        StopWatchStruct stopwatch;             /* Stop watch to time the test */
-        numsortstruct->numarrays=1;
-        while(1)
-        {
-            /*
-             ** Allocate space for arrays
-             */
-            arraybase=(farlong *)AllocateMemory(sizeof(long) *
-                    numsortstruct->numarrays * numsortstruct->arraysize,
-                    &systemerror);
-            if(systemerror)
-            {
-                ReportError(numsortstruct->errorcontext,systemerror);
-                FreeMemory((farvoid *)arraybase,
-                        &systemerror);
-                ErrorExit();
-            }
-
-            /*
-             ** Do an iteration of the numeric sort.  If the
-             ** elapsed time is less than or equal to the permitted
-             ** minimum, then allocate for more arrays and
-             ** try again.
-             */
-            ResetStopWatch(&stopwatch);
-            DoNumSortIteration(arraybase,
-                        numsortstruct->arraysize,
-                        numsortstruct->numarrays,
-                        &stopwatch);
-            FreeMemory((farvoid *)arraybase,&systemerror);
-            if (stopwatch.realsecs > global_min_itersec)
-                break;          /* We're ok...exit */
-            numsortstruct->numarrays *= 2;
-            if(numsortstruct->numarrays>NUMNUMARRAYS)
-            {
-                printf("CPU:NSORT -- NUMNUMARRAYS hit.\n");
-                ErrorExit();
-            }
-        }
-        numsortstruct->adjust = 1;
-    }
 }
 
 void *NumSortFunc(void *data)
@@ -177,8 +115,7 @@ void *NumSortFunc(void *data)
     testdata = (TestThreadData *)data;
     numsortstruct = testdata->control;
 
-    arraybase=(farlong *)AllocateMemory(sizeof(long) *
-               numsortstruct->numarrays * numsortstruct->arraysize,
+    arraybase=(farlong *)AllocateMemory(sizeof(long) * numsortstruct->arraysize,
                &systemerror);
     if(systemerror)
     {
@@ -198,9 +135,8 @@ void *NumSortFunc(void *data)
     do {
         DoNumSortIteration(arraybase,
                 numsortstruct->arraysize,
-                numsortstruct->numarrays,
                 &stopwatch);
-        testdata->result.iterations+=(double)numsortstruct->numarrays;
+        testdata->result.iterations+=(double)1.0;
     } while(stopwatch.realsecs<numsortstruct->request_secs);
 
     /*
@@ -223,14 +159,12 @@ void *NumSortFunc(void *data)
 */
 static void DoNumSortIteration(farlong *arraybase,
         ulong arraysize,
-        uint numarrays,
         StopWatchStruct *stopwatch)
 {
-    ulong i;
     /*
      ** Load up the array with random numbers
      */
-    LoadNumArrayWithRand(arraybase,arraysize,numarrays);
+    LoadNumArrayWithRand(arraybase,arraysize);
 
     /*
      ** Start the stopwatch
@@ -240,15 +174,16 @@ static void DoNumSortIteration(farlong *arraybase,
     /*
      ** Execute a heap of heapsorts
      */
-    for(i=0;i<numarrays;i++)
-        NumHeapSort(arraybase+i*arraysize,0L,arraysize-1L);
+    NumHeapSort(arraybase,0L,arraysize-1L);
 
     /*
      ** Get elapsed time
      */
     StopStopWatch(stopwatch);
+
 #ifdef DEBUG
     {
+        ulong i;
         for(i=0;i<arraysize-1;i++)
         {       /*
                  ** Compare to check for proper
@@ -270,34 +205,19 @@ static void DoNumSortIteration(farlong *arraybase,
 ** Load up an array with random longs.
 */
 static void LoadNumArrayWithRand(farlong *array,     /* Pointer to arrays */
-        ulong arraysize,
-        uint numarrays)         /* # of elements in array */
+        ulong arraysize)         /* # of elements in array */
 {
     long i;                 /* Used for index */
-    farlong *darray;        /* Destination array pointer */
     /*
      ** Initialize the random number generator
      */
-    /* randnum(13L); */
     randnum((int32)13);
 
     /*
      ** Load up first array with randoms
      */
     for(i=0L;i<arraysize;i++)
-        /* array[i]=randnum(0L); */
         array[i]=randnum((int32)0);
-
-    /*
-     ** Now, if there's more than one array to load, copy the
-     ** first into each of the others.
-     */
-    darray=array;
-    while(--numarrays)
-    {       darray+=arraysize;
-        for(i=0L;i<arraysize;i++)
-            darray[i]=array[i];
-    }
 
     return;
 }

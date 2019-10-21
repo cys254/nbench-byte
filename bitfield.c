@@ -97,84 +97,10 @@ void DoBitopsAdjust(TestControlStruct *locbitopstruct)
 {
     if(locbitopstruct->adjust==0)
     {
-        farulong *bitarraybase;         /* Base of bitmap array */
-        farulong *bitoparraybase;       /* Base of bitmap operations array */
-        ulong nbitops;                  /* # of bitfield operations */
-        StopWatchStruct stopwatch;      /* Stop watch to time the test */
-        int systemerror;                /* For holding error codes */
-        bitarraybase=(farulong *)AllocateMemory(locbitopstruct->bitfieldarraysize *
-                sizeof(ulong),&systemerror);
-        if(systemerror)
-        {
-            ReportError(locbitopstruct->errorcontext,systemerror);
-            ErrorExit();
-        }
-
         /*
          ** Initialize bitfield operations array to [3] elements
          */
         locbitopstruct->bitoparraysize=3L;
-
-        while(1)
-        {
-            /*
-             ** Allocate space for operations array
-             */
-            bitoparraybase=(farulong *)AllocateMemory(locbitopstruct->bitoparraysize*2L*
-                    sizeof(ulong),
-                    &systemerror);
-            if(systemerror)
-            {
-                ReportError(locbitopstruct->errorcontext,systemerror);
-                FreeMemory((farvoid *)bitarraybase,&systemerror);
-                ErrorExit();
-            }
-            /*
-             ** Do an iteration of the bitmap test.  If the
-             ** elapsed time is less than or equal to the permitted
-             ** minimum, then de-allocate the array, reallocate a
-             ** larger version, and try again.
-             */
-            ResetStopWatch(&stopwatch);
-            DoBitfieldIteration(bitarraybase,
-                    bitoparraybase,
-                    locbitopstruct->bitoparraysize,
-                    &nbitops,
-                    &stopwatch);
-#ifdef DEBUG
-#ifdef LINUX
-            if (locbitopstruct->bitoparraysize==3L){
-                /* this is the first loop, write a debug file */
-                FILE *file;
-                unsigned long *running_base; /* same as farulong */
-                long counter;
-                file=fopen("debugbit.dat","w");
-                running_base=bitarraybase;
-                for (counter=0;counter<(long)(locbitopstruct->bitfieldarraysize);counter++){
-#ifdef LONG64
-                    fprintf(file,"%08X",(unsigned int)(*running_base&0xFFFFFFFFL));
-                    fprintf(file,"%08X",(unsigned int)((*running_base>>32)&0xFFFFFFFFL));
-                    if ((counter+1)%4==0) fprintf(file,"\n");
-#else
-                    fprintf(file,"%08lX",*running_base);
-                    if ((counter+1)%8==0) fprintf(file,"\n");
-#endif
-                    running_base=running_base+1;
-                }
-                fclose(file);
-                printf("\nWrote the file debugbit.dat, you may want to compare it to debugbit.good\n");
-            }
-#endif
-#endif
-
-            FreeMemory((farvoid *)bitoparraybase,&systemerror);
-
-            if (stopwatch.realsecs>global_min_itersec) break;      /* We're ok...exit */
-
-            locbitopstruct->bitoparraysize*=2;
-        }
-
-        FreeMemory((farvoid *)bitarraybase,&systemerror);
 
         /*
          ** Set adjustment flag to show that we don't have
@@ -291,11 +217,9 @@ static void DoBitfieldIteration(farulong *bitarraybase,
     for (i=0;i<bitoparraysize;i++)
     {
         /* First item is offset */
-        /* *(bitoparraybase+i+i)=bitoffset=abs_randwc(262140L); */
         *(bitoparraybase+i+i)=bitoffset=abs_randwc((int32)262140);
 
         /* Next item is run length */
-        /* *nbitops+=*(bitoparraybase+i+i+1L)=abs_randwc(262140L-bitoffset);*/
         *nbitops+=*(bitoparraybase+i+i+1L)=abs_randwc((int32)262140-bitoffset);
     }
 

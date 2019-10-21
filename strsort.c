@@ -60,11 +60,9 @@ void DoStringSortAdjust(TestControlStruct *strsortstruct);
 
 static void *StringSortFunc(void *data);
 static void DoStringSortIteration(faruchar *arraybase,
-		uint numarrays,
 		ulong arraysize,
         StopWatchStruct *stopwatch);
 static farulong *LoadStringArray(faruchar *strarray,
-		uint numarrays,
 		ulong *strings,
 		ulong arraysize);
 static void stradjust(farulong *optrarray,
@@ -106,11 +104,6 @@ void DoStringSort(void)
     strsortstruct=&global_strsortstruct;
 
     /*
-     ** See if we have to perform self-adjustment code
-     */
-    DoStringSortAdjust(strsortstruct);
-
-    /*
      ** Run the benchmark
      */
     run_bench_with_concurrency(strsortstruct, StringSortFunc);
@@ -119,55 +112,6 @@ void DoStringSort(void)
     if (stringsort_status==0) printf("String sort: OK\n");
     stringsort_status=0;
 #endif
-}
-
-void DoStringSortAdjust(TestControlStruct *strsortstruct)
-{
-    if(strsortstruct->adjust==0)
-    {
-        faruchar *arraybase;            /* Base pointer of char array */
-        StopWatchStruct stopwatch;      /* Stop watch to time the test */
-        int systemerror;                /* For holding error code */
-        /*
-         ** Initialize the number of arrays.
-         */
-        strsortstruct->numarrays=1;
-        while(1)
-        {
-            /*
-             ** Allocate space for array.  We'll add an extra 100
-             ** bytes to protect memory as strings move around
-             ** (this can happen during string adjustment)
-             */
-            arraybase=(faruchar *)AllocateMemory((strsortstruct->arraysize+100L) *
-                    (long)strsortstruct->numarrays,&systemerror);
-            if(systemerror)
-            {
-                ReportError(strsortstruct->errorcontext,systemerror);
-                ErrorExit();
-            }
-
-            ResetStopWatch(&stopwatch);
-
-            /*
-             ** Do an iteration of the string sort.  If the
-             ** elapsed time is less than or equal to the permitted
-             ** minimum, then de-allocate the array, reallocate a
-             ** an additional array, and try again.
-             */
-            DoStringSortIteration(arraybase,
-                        strsortstruct->numarrays,
-                        strsortstruct->arraysize, &stopwatch);
-
-            FreeMemory((farvoid *)arraybase,&systemerror);
-
-            if(stopwatch.realsecs > global_min_itersec)
-                break;          /* We're ok...exit */
-
-            strsortstruct->numarrays*=2;
-        }
-        strsortstruct->adjust=1;
-    }
 }
 
 void *StringSortFunc(void *data)
@@ -184,8 +128,7 @@ void *StringSortFunc(void *data)
     /*
      ** Allocate the space for the array.
      */
-    arraybase=(faruchar *)AllocateMemory((strsortstruct->arraysize+100L) *
-                (long)strsortstruct->numarrays,&systemerror);
+    arraybase=(faruchar *)AllocateMemory((strsortstruct->arraysize+100L),&systemerror);
     if(systemerror)
     {
          ReportError(strsortstruct->errorcontext,systemerror);
@@ -201,10 +144,9 @@ void *StringSortFunc(void *data)
 
     do {
         DoStringSortIteration(arraybase,
-                strsortstruct->numarrays,
                 strsortstruct->arraysize,
                 &stopwatch);
-        testdata->result.iterations+=(double)strsortstruct->numarrays;
+        testdata->result.iterations+=(double)1.0;
     } while(stopwatch.realsecs<strsortstruct->request_secs);
 
     /*
@@ -227,26 +169,16 @@ void *StringSortFunc(void *data)
 ** array.
 */
 static void DoStringSortIteration(faruchar *arraybase,
-        uint numarrays,ulong arraysize,StopWatchStruct *stopwatch)
+        ulong arraysize,StopWatchStruct *stopwatch)
 {
     farulong *optrarray;            /* Offset pointer array */
     unsigned long nstrings;         /* # of strings in array */
     int syserror;                   /* System error code */
-    unsigned int i;                 /* Index */
-    farulong *tempobase;            /* Temporary offset pointer base */
-    faruchar *tempsbase;            /* Temporary string base pointer */
 
     /*
      ** Load up the array(s) with random numbers
      */
-    optrarray=LoadStringArray(arraybase,numarrays,&nstrings,arraysize);
-
-    /*
-     ** Set temp base pointers...they will be modified as the
-     ** benchmark proceeds.
-     */
-    tempobase=optrarray;
-    tempsbase=arraybase;
+    optrarray=LoadStringArray(arraybase,&nstrings,arraysize);
 
     /*
      ** Start the stopwatch
@@ -256,12 +188,7 @@ static void DoStringSortIteration(faruchar *arraybase,
     /*
      ** Execute heapsorts
      */
-    for(i=0;i<numarrays;i++)
-    {
-        StrHeapSort(tempobase,tempsbase,nstrings,0L,nstrings-1);
-        tempobase+=nstrings;    /* Advance base pointers */
-        tempsbase+=arraysize+100;
-    }
+    StrHeapSort(optrarray,arraybase,nstrings,0L,nstrings-1);
 
     /*
      ** Record elapsed time
@@ -303,26 +230,20 @@ static void DoStringSortIteration(faruchar *arraybase,
 ** routine builds one array, then copies it into the others.
 */
 static farulong *LoadStringArray(faruchar *strarray, /* String array */
-    uint numarrays,                 /* # of arrays */
     ulong *nstrings,                /* # of strings */
     ulong arraysize)                /* Size of array */
 {
-    faruchar *tempsbase;            /* Temporary string base pointer */
     farulong *optrarray;            /* Local for pointer */
-    farulong *tempobase;            /* Temporary offset pointer base pointer */
     unsigned long curroffset;       /* Current offset */
     int fullflag;                   /* Indicates full array */
     unsigned char stringlength;     /* Length of string */
     unsigned char i;                /* Index */
     unsigned long j;                /* Another index */
-    unsigned int k;                 /* Yet another index */
-    unsigned int l;                 /* Ans still one more index */
     int systemerror;                /* For holding error code */
 
     /*
      ** Initialize random number generator.
      */
-    /* randnum(13L); */
     randnum((int32)13);
 
     /*
@@ -373,26 +294,10 @@ static farulong *LoadStringArray(faruchar *strarray, /* String array */
     } while(fullflag==0);
 
     /*
-     ** We now have initialized a single full array.  If there
-     ** is more than one array, copy the original into the
-     ** others.
-     */
-    k=1;
-    tempsbase=strarray;
-    while(k<numarrays)
-    {       tempsbase+=arraysize+100;         /* Set base */
-        for(l=0;l<arraysize;l++)
-            tempsbase[l]=strarray[l];
-        k++;
-    }
-
-    /*
      ** Now the array is full, allocate enough space for an
      ** offset pointer array.
      */
-    optrarray=(farulong *)AllocateMemory(*nstrings * sizeof(unsigned long) *
-            numarrays,
-            &systemerror);
+    optrarray=(farulong *)AllocateMemory(*nstrings * sizeof(unsigned long), &systemerror);
     if(systemerror)
     {
         ReportError("ppCPU:Stringsort",systemerror);
@@ -410,20 +315,6 @@ static farulong *LoadStringArray(faruchar *strarray, /* String array */
     {
         *(optrarray+j)=curroffset;
         curroffset+=(unsigned long)(*(strarray+curroffset))+1L;
-    }
-
-    /*
-     ** As above, we've made one copy of the offset pointers,
-     ** so duplicate this array in the remaining ones.
-     */
-    k=1;
-    tempobase=optrarray;
-    while(k<numarrays)
-    {
-        tempobase+=*nstrings;
-        for(l=0;l<*nstrings;l++)
-            tempobase[l]=optrarray[l];
-        k++;
     }
 
     /*

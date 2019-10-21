@@ -114,7 +114,7 @@ void SetupCPUEmFloatArrays(InternalFPF *abase,
         InternalFPF *bbase, InternalFPF *cbase, ulong arraysize);
 void DoEmFloatIteration(InternalFPF *abase,
         InternalFPF *bbase, InternalFPF *cbase,
-        ulong arraysize, ulong loops, StopWatchStruct *stopwatch);
+        ulong arraysize, StopWatchStruct *stopwatch);
 static void SetInternalFPFZero(InternalFPF *dest,
                         uchar sign);
 static void SetInternalFPFInfinity(InternalFPF *dest,
@@ -140,7 +140,7 @@ static void DivideInternalFPF(InternalFPF *x,InternalFPF *y,
 /* static void LongToInternalFPF(long mylong, */
 static void Int32ToInternalFPF(int32 mylong,
                 InternalFPF *dest);
-#ifdef DEBUG
+#ifdef DEBUG1
 static int InternalFPFToString(char *dest,
                 InternalFPF *src);
 #endif

@@ -86,7 +86,7 @@ static void create_text_block(farchar *tb, ulong tblen,
 		ushort maxlinlen);
 static void DoHuffIteration(farchar *plaintext,
 	farchar *comparray, farchar *decomparray,
-	ulong arraysize, ulong nloops, huff_node *hufftree, StopWatchStruct *stopwatch);
+	ulong arraysize, huff_node *hufftree, StopWatchStruct *stopwatch);
 static void SetCompBit(u8 *comparray, u32 bitoffset, char bitchar);
 static int GetCompBit(u8 *comparray, u32 bitoffset);
 
@@ -107,11 +107,6 @@ void DoHuffman(void)
      ** Link to global data
      */
     lochuffstruct=&global_huffstruct;
-
-    /*
-     ** See if we have to perform self-adjustment code
-     */
-    DoHuffmanAdjust(lochuffstruct);
 
     /*
      ** Run the benchmark
@@ -200,44 +195,6 @@ void HuffDataCleanup(HuffData *huffdata)
     FreeMemory((farvoid *)huffdata->hufftree,&systemerror);
 }
 
-/********************
-** DoHuffmanAdjust **
-*********************
-** Do self-adjust
-*/
-void DoHuffmanAdjust(TestControlStruct *lochuffstruct)
-{
-    /*
-     ** See if we need to perform self adjustment loop.
-     */
-    if(lochuffstruct->adjust==0)
-    {
-        HuffData huffdata;
-        StopWatchStruct stopwatch;      /* Stop watch to time the test */
-        HuffDataSetup(lochuffstruct, &huffdata);
-        /*
-         ** Do self-adjustment.  This involves initializing the
-         ** # of loops and increasing the loop count until we
-         ** get a number of loops that we can use.
-         */
-        for(lochuffstruct->loops=1L;
-                lochuffstruct->loops<MAXHUFFLOOPS;
-                lochuffstruct->loops*=2L) {
-            ResetStopWatch(&stopwatch);
-            DoHuffIteration(huffdata.plaintext,
-                        huffdata.comparray,
-                        huffdata.decomparray,
-                        lochuffstruct->arraysize,
-                        lochuffstruct->loops,
-                        huffdata.hufftree,
-                        &stopwatch);
-            if(stopwatch.realsecs>global_min_itersec) break;
-        }
-        HuffDataCleanup(&huffdata);
-        lochuffstruct->adjust=1;
-    }
-}
-
 /****************
 ** HuffmanFunc **
 *****************
@@ -270,10 +227,9 @@ void *HuffmanFunc(void *data)
                 huffdata.comparray,
                 huffdata.decomparray,
                 lochuffstruct->arraysize,
-                lochuffstruct->loops,
                 huffdata.hufftree,
                 &stopwatch);
-        testdata->result.iterations+=(double)lochuffstruct->loops;
+        testdata->result.iterations+=(double)1.0;
     } while(stopwatch.realsecs<lochuffstruct->request_secs);
 
     HuffDataCleanup(&huffdata);
@@ -392,7 +348,6 @@ static void DoHuffIteration(farchar *plaintext,
     farchar *comparray,
     farchar *decomparray,
     ulong arraysize,
-    ulong nloops,
     huff_node *hufftree,
     StopWatchStruct *stopwatch)
 {
@@ -416,10 +371,6 @@ static void DoHuffIteration(farchar *plaintext,
      */
     StartStopWatch(stopwatch);
 
-    /*
-     ** Do everything for nloops
-     */
-    while(nloops--)
     {
 
         /*
@@ -574,12 +525,12 @@ static void DoHuffIteration(farchar *plaintext,
             textoffset++;
         } while(bitoffset<maxbitoffset);
 
-    }       /* End the big while(nloops--) from above */
+    }
 
     /*
      ** All done
      */
-#ifdef DEBUG
+#ifdef DEBUG1
     if (status==0) printf("Huffman: OK\n");
 #endif
     StopStopWatch(stopwatch);
