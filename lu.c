@@ -79,8 +79,18 @@
 ** DEFINES
 */
 
+#define DEFAULT_LUARRAYROWS 101L
+#define DEFAULT_LUARRAYCOLS 101L
+
+#ifdef DOS16
+#define LUARRAYROWS 81L
+#define LUARRAYCOLS 81L
+#else
 #define LUARRAYROWS 101L
 #define LUARRAYCOLS 101L
+#endif
+
+float global_iteration_factor=(float)LUARRAYROWS/DEFAULT_LUARRAYROWS*(LUARRAYROWS*LUARRAYCOLS-1)/(DEFAULT_LUARRAYROWS*DEFAULT_LUARRAYCOLS-1);
 
 /*
 ** TYPEDEFS
@@ -273,6 +283,9 @@ void DoLUAdjust(TestControlStruct *loclustruct)
 {
     if(loclustruct->adjust==0)
     {
+#ifdef DOS16
+        loclustruct->numarrays=1;
+#else
         int i;
         LUData ludata;
         StopWatchStruct stopwatch;             /* Stop watch to time the test */
@@ -307,7 +320,7 @@ void DoLUAdjust(TestControlStruct *loclustruct)
             printf("FPU:LU -- Array limit reached\n");
             ErrorExit();
         }
-
+#endif
         loclustruct->adjust=1;
     }
 }
@@ -338,7 +351,7 @@ void *LUFunc(void *data)
     do {
         DoLUIteration(ludata.a,ludata.b,ludata.abase,ludata.bbase,
                 loclustruct->numarrays,ludata.LUtempvv, &stopwatch);
-        testdata->result.iterations+=(double)loclustruct->numarrays;
+        testdata->result.iterations+=(double)loclustruct->numarrays*global_iteration_factor;
     } while(stopwatch.realsecs<loclustruct->request_secs);
 
     /*

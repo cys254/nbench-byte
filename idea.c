@@ -224,6 +224,9 @@ void DoIDEAAdjust(TestControlStruct *locideastruct)
      */
     if(locideastruct->adjust==0)
     {
+#ifdef DOS16
+        locideastruct->loops=1L;
+#else
         IDEAData ideadata;          /* test data */
         StopWatchStruct stopwatch;      /* Stop watch to time the test */
 
@@ -253,7 +256,7 @@ void DoIDEAAdjust(TestControlStruct *locideastruct)
          ** show that we don't have to rerun adjustment code.
          */
         IDEADataCleanup(&ideadata);
-
+#endif
         locideastruct->adjust=1;
     }
 }

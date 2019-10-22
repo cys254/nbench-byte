@@ -197,8 +197,8 @@ is consumed to gather reliable test results.
 Here's an example.
 
 The BYTEmark benchmarks perform timing using a "stopwatch" paradigm. The
-routine StartStopwatch() begins timing; StopStopwatch() ends timing and
-reports the elapsed time in clock ticks. Now, "clock ticks" is a value that
+routine StartStopWatch() begins timing; StopStopWatch() ends timing and
+stores elapsed time and cpu time in StopWatchStruct.  Now, "clock ticks" is a value that
 varies from system to system. We'll presume that our test system provides
 1000 clock ticks per second. (We'll also presume that the system actually
 updates its clock 1000 times per second. Surprisingly, some systems don't do

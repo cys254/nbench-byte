@@ -97,6 +97,9 @@ void DoBitopsAdjust(TestControlStruct *locbitopstruct)
 {
     if(locbitopstruct->adjust==0)
     {
+#ifdef DOS16
+        locbitopstruct->bitoparraysize=3L;
+#else
         farulong *bitarraybase;         /* Base of bitmap array */
         farulong *bitoparraybase;       /* Base of bitmap operations array */
         ulong nbitops;                  /* # of bitfield operations */
@@ -175,7 +178,7 @@ void DoBitopsAdjust(TestControlStruct *locbitopstruct)
         }
 
         FreeMemory((farvoid *)bitarraybase,&systemerror);
-
+#endif
         /*
          ** Set adjustment flag to show that we don't have
          ** to do self adjusting in the future.
@@ -227,7 +230,7 @@ void *BitopsFunc(void *data)
     do {
         DoBitfieldIteration(bitarraybase, bitoparraybase,
                 locbitopstruct->bitoparraysize,&nbitops,&stopwatch);
-        testdata->result.iterations+=(double)nbitops;
+        testdata->result.iterations+=(double)nbitops*BITOPS_PER_UNIT;
     } while(stopwatch.realsecs<locbitopstruct->request_secs);
 
     /*

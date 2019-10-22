@@ -212,7 +212,7 @@ void *FourierFunc(void *data)
 
     do {
         DoFPUTransIteration(abase,bbase,locfourierstruct->arraysize,&stopwatch);
-        testdata->result.iterations+=(double)locfourierstruct->arraysize*(double)2.0-(double)1.0;
+        testdata->result.iterations+=(double)(locfourierstruct->arraysize*(double)2.0-(double)1.0)*FLOPS_PER_UNIT;
     } while(stopwatch.realsecs<locfourierstruct->request_secs);
 
     /*

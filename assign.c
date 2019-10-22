@@ -138,6 +138,9 @@ void DoAssignAdjust(TestControlStruct *locassignstruct)
      */
     if(locassignstruct->adjust==0)
     {
+#ifdef DOS16
+        locassignstruct->numarrays=1;
+#else
         farlong *arraybase;
         int systemerror;
         StopWatchStruct stopwatch;             /* Stop watch to time the test */
@@ -181,6 +184,7 @@ void DoAssignAdjust(TestControlStruct *locassignstruct)
 
             locassignstruct->numarrays*=2;
         }
+#endif
         /*
          ** Be sure to show that we don't have to rerun adjustment code.
          */

@@ -125,6 +125,9 @@ void DoStringSortAdjust(TestControlStruct *strsortstruct)
 {
     if(strsortstruct->adjust==0)
     {
+#ifdef DOS16
+        strsortstruct->numarrays=1;
+#else
         faruchar *arraybase;            /* Base pointer of char array */
         StopWatchStruct stopwatch;      /* Stop watch to time the test */
         int systemerror;                /* For holding error code */
@@ -166,6 +169,7 @@ void DoStringSortAdjust(TestControlStruct *strsortstruct)
 
             strsortstruct->numarrays*=2;
         }
+#endif
         strsortstruct->adjust=1;
     }
 }

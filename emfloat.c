@@ -66,13 +66,12 @@ void DoEmFloat(void)
     /*
      ** Test the emulation routines.
      */
-#ifdef DEBUG
-#endif
 
     /*
      ** See if we need to do self-adjusting code.
      */
     DoEmFloatAdjust(locemfloatstruct);
+
     /*
      ** All's well if we get here.  Repeatedly perform floating
      ** tests until the accumulated time is greater than the
@@ -158,6 +157,9 @@ void DoEmFloatAdjust(TestControlStruct *locemfloatstruct)
      */
     if(locemfloatstruct->adjust==0)
     {
+#ifdef DOS16
+        locemfloatstruct->loops=1;
+#else
         EmFloatData emfloatdata;        /* Data for EmFloat testing */
         ulong loops;                    /* # of loops */
 
@@ -197,7 +199,7 @@ void DoEmFloatAdjust(TestControlStruct *locemfloatstruct)
             printf("CPU:EMFPU -- CMPUEMFLOATLOOPMAX limit hit\n");
             ErrorExit();
         }
-
+#endif
         /*
          ** indicate that adjustment is done.
          */

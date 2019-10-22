@@ -98,12 +98,12 @@ UNAME := $(shell uname)
 ifeq ($(UNAME), Darwin)
     CC=cc
     CFLAGS = -Wall -O3
-    DEFINES= -DOSX $(NO_UNAME)
+    DEFINES= -DOSX $(NO_UNAME) -DUSE_PTHREAD
     LIBS= -lm
 else
     CC=gcc
     CFLAGS = -s -static -Wall -O3 -fomit-frame-pointer -funroll-loops
-    DEFINES= -DLINUX $(NO_UNAME)
+    DEFINES= -DLINUX $(NO_UNAME) -DUSE_PTHREAD
     LIBS= -lm -lpthread -lrt
 endif
 

@@ -44,7 +44,7 @@
 #include <sys\stat.h>
 #endif
 
-#if defined(LINUX) || defined(OSX)
+#ifdef USE_PTHREAD
 #include <pthread.h>
 #endif
 
@@ -62,7 +62,7 @@ int global_realtime_cid = CLOCK_MONOTONIC;  /* Clock ID used in clock_gettime */
 */
 ulong mem_array[2][MEM_ARRAY_SIZE];
 int mem_array_ents;		/* # of active entries */
-#if defined(LINUX) || defined(OSX)
+#ifdef USE_PTHREAD
 pthread_mutex_t master_lock = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
@@ -82,47 +82,11 @@ pthread_mutex_t master_lock = PTHREAD_MUTEX_INITIALIZER;
 **   mem_array[0][n] = Actual address (from malloc)
 **   mem_array[1][n] = Aligned address
 ** Currently, mem_array[][] is only used if you use malloc;
-**  it is not used for the 16-bit DOS and MAC versions.
+**  it is not used for the MAC versions.
 */
 farvoid *AllocateMemory(unsigned long nbytes,   /* # of bytes to alloc */
 		int *errorcode)                 /* Returned error code */
 {
-#ifdef DOS16MEM
-    union REGS registers;
-    unsigned short nparas;            /* # of paragraphs */
-
-    /*
-     ** Set # of paragraphs to nbytes/16 +1.  The +1 is a
-     ** slop factor.
-     */
-    nparas=(unsigned short)(nbytes/16L) + 1;
-
-    /*
-     ** Set incoming registers.
-     */
-    registers.h.ah=0x48;            /* Allocate memory */
-    registers.x.bx=nparas;          /* # of paragraphs */
-
-
-    intdos(&registers,&registers);  /* Call DOS */
-
-    /*
-     ** See if things succeeded.
-     */
-    if(registers.x.cflag)
-    {       printf("error: %d Lgst: %d\n",registers.x.ax,registers.x.bx);
-        *errorcode=ERROR_MEMORY;
-        return((farvoid *)NULL);
-    }
-
-    /*
-     ** Create a farvoid pointer to return.
-     */
-    *errorcode=0;
-    return((farvoid *)MK_FP(registers.x.ax,0));
-
-#endif
-
 #ifdef MACMEM
     /*
      ** For MAC CodeWarrior, we'll use the MacOS NewPtr call
@@ -145,9 +109,6 @@ farvoid *AllocateMemory(unsigned long nbytes,   /* # of bytes to alloc */
     farvoid *returnval;             /* Return value */
     ulong true_addr;		/* True address */
     ulong adj_addr;			/* Adjusted address */
-#if defined(LINUX) || defined(OSX)
-    pthread_mutex_lock(&master_lock);
-#endif
 
     returnval=(farvoid *)malloc((size_t)(nbytes+2L*(long)global_align));
     if(returnval==(farvoid *)NULL)
@@ -163,9 +124,6 @@ farvoid *AllocateMemory(unsigned long nbytes,   /* # of bytes to alloc */
     {
         if(AddMemArray(true_addr, adj_addr))
             *errorcode=ERROR_MEMARRAY_FULL;
-#if defined(LINUX) || defined(OSX)
-        pthread_mutex_unlock(&master_lock);
-#endif
         return(returnval);
     }
 
@@ -181,9 +139,6 @@ farvoid *AllocateMemory(unsigned long nbytes,   /* # of bytes to alloc */
     returnval=(void *)adj_addr;
     if(AddMemArray(true_addr,adj_addr))
         *errorcode=ERROR_MEMARRAY_FULL;
-#if defined(LINUX) || defined(OSX)
-    pthread_mutex_unlock(&master_lock);
-#endif
     return(returnval);
 #endif
 
@@ -199,49 +154,6 @@ farvoid *AllocateMemory(unsigned long nbytes,   /* # of bytes to alloc */
 void FreeMemory(farvoid *mempointer,    /* Pointer to memory block */
 		int *errorcode)
 {
-#ifdef DOS16MEM
-    /*
-     ** 16-bit DOS VERSION!!
-     */
-    unsigned int segment;
-    unsigned int offset;
-    union REGS registers;
-    struct SREGS sregisters;
-
-    /*
-     ** First get the segment/offset of the farvoid pointer.
-     */
-    segment=FP_SEG(mempointer);
-    offset=FP_OFF(mempointer);
-
-    /*
-     ** Align the segment properly.  For as long as offset > 16,
-     ** subtract 16 from offset and add 1 to segment.
-     */
-    while(offset>=16)
-    {       offset-=16;
-        segment++;
-    }
-
-    /*
-     ** Build the call to DOS
-     */
-    registers.h.ah=0x49;            /* Free memory */
-    sregisters.es=segment;
-
-    intdosx(&registers,&registers,&sregisters);
-
-    /*
-     ** Check for error
-     */
-    if(registers.x.cflag)
-    {       *errorcode=ERROR_MEMORY;
-        return;
-    }
-
-    *errorcode=0;
-    return;
-#endif
 
 #ifdef MACMEM
     DisposPtr((Ptr)mempointer);
@@ -252,25 +164,16 @@ void FreeMemory(farvoid *mempointer,    /* Pointer to memory block */
 #ifdef MALLOCMEM
     ulong adj_addr, true_addr;
 
-#if defined(LINUX) || defined(OSX)
-    pthread_mutex_lock(&master_lock);
-#endif
     /* Locate item in memory array */
     adj_addr=(ulong)mempointer;
     if(RemoveMemArray(adj_addr, &true_addr))
     {
         *errorcode=ERROR_MEMARRAY_NFOUND;
-#if defined(LINUX) || defined(OSX)
-        pthread_mutex_unlock(&master_lock);
-#endif
         return;
     }
     mempointer=(void *)true_addr;
     free(mempointer);
     *errorcode=0;
-#if defined(LINUX) || defined(OSX)
-    pthread_mutex_unlock(&master_lock);
-#endif
     return;
 #endif
 }
@@ -286,112 +189,8 @@ void MoveMemory( farvoid *destination,  /* Destination address */
 		unsigned long nbytes)
 {
 
-    /* +++16-bit DOS VERSION+++ */
-#ifdef DOS16MEM
-
-    FarDOSmemmove( destination, source, nbytes);
-
-#else
-
     memmove(destination, source, nbytes);
-
-#endif
 }
-
-#ifdef DOS16MEM
-
-/****************************
-** FarDOSmemmove
-** Performs the same function as memmove for DOS when
-** the arrays are defined with far pointers.
-*/
-void FarDOSmemmove(farvoid *destination,        /* Destination pointer */
-		farvoid *source,        /* Source pointer */
-		unsigned long nbytes)   /* # of bytes to move */
-{
-    unsigned char huge *uchsource;  /* Temp source */
-    unsigned char huge *uchdest;    /* Temp destination */
-    unsigned long saddr;            /* Source "true" address */
-    unsigned long daddr;            /* Destination "true" address */
-
-
-    /*
-     ** Get unsigned char pointer equivalents
-     */
-    uchsource=(unsigned char huge *)source;
-    uchdest=(unsigned char huge *)destination;
-
-    /*
-     ** Calculate true address of source and destination and
-     ** compare.
-     */
-    saddr=(unsigned long)(FP_SEG(source)*16 + FP_OFF(source));
-    daddr=(unsigned long)(FP_SEG(destination)*16 + FP_OFF(destination));
-
-    if(saddr > daddr)
-    {
-        /*
-         ** Source is greater than destination.
-         ** Use a series of standard move operations.
-         ** We'll move 65535 bytes at a time.
-         */
-        while(nbytes>=65535L)
-        {       _fmemmove((farvoid *)uchdest,
-                (farvoid *)uchsource,
-                (size_t) 65535);
-        uchsource+=65535;       /* Advance pointers */
-        uchdest+=65535;
-        nbytes-=65535;
-        }
-
-        /*
-         ** Move remaining bytes
-         */
-        if(nbytes!=0L)
-            _fmemmove((farvoid *)uchdest,
-                    (farvoid *)uchsource,
-                    (size_t)(nbytes & 0xFFFF));
-
-    }
-    else
-    {
-        /*
-         ** Destination is greater than source.
-         ** Advance pointers to the end of their
-         ** respective blocks.
-         */
-        uchsource+=nbytes;
-        uchdest+=nbytes;
-
-        /*
-         ** Again, move 65535 bytes at a time.  However,
-         ** "back" the pointers up before doing the
-         ** move.
-         */
-        while(nbytes>=65535L)
-        {
-            uchsource-=65535;
-            uchdest-=65535;
-            _fmemmove((farvoid *)uchdest,
-                    (farvoid *)uchsource,
-                    (size_t) 65535);
-            nbytes-=65535;
-        }
-
-        /*
-         ** Move remaining bytes.
-         */
-        if(nbytes!=0L)
-        {       uchsource-=nbytes;
-            uchdest-=nbytes;
-            _fmemmove((farvoid *)uchdest,
-                    (farvoid *)uchsource,
-                    (size_t)(nbytes & 0xFFFF));
-        }
-    }
-    return;
-}
-#endif
 
 /***********************************
 ** MEMORY ARRAY HANDLING ROUTINES **
@@ -419,13 +218,24 @@ void InitMemArray(void)
 int AddMemArray(ulong true_addr,
 		ulong adj_addr)
 {
-    if(mem_array_ents>=MEM_ARRAY_SIZE)
-        return(-1);
+    int err = -1;
 
-    mem_array[0][mem_array_ents]=true_addr;
-    mem_array[1][mem_array_ents]=adj_addr;
-    mem_array_ents++;
-    return(0);
+#ifdef USE_PTHREAD
+    pthread_mutex_lock(&master_lock);
+#endif
+
+    if(mem_array_ents<MEM_ARRAY_SIZE) {
+        mem_array[0][mem_array_ents]=true_addr;
+        mem_array[1][mem_array_ents]=adj_addr;
+        mem_array_ents++;
+        err = 0;
+    }
+
+#ifdef USE_PTHREAD
+    pthread_mutex_unlock(&master_lock);
+#endif
+
+    return(err);
 }
 
 /*************************
@@ -439,6 +249,11 @@ int AddMemArray(ulong true_addr,
 int RemoveMemArray(ulong adj_addr,ulong *true_addr)
 {
     int i,j;
+    int err = -1;
+
+#ifdef USE_PTHREAD
+    pthread_mutex_lock(&master_lock);
+#endif
 
     /* Locate the item in the array. */
     for(i=0;i<mem_array_ents;i++)
@@ -452,11 +267,15 @@ int RemoveMemArray(ulong adj_addr,ulong *true_addr)
                 j++;
             }
             mem_array_ents--;
-            return(0);      /* Return if found */
+            err = 0;
+            break;  /* break if found */
         }
 
-    /* If we made it here...something's wrong...show error */
-    return(-1);
+#ifdef USE_PTHREAD
+    pthread_mutex_unlock(&master_lock);
+#endif
+
+    return(err);
 }
 
 /**********************************
@@ -816,126 +635,6 @@ void ErrorExit()
 /*****************************
 **    STOPWATCH ROUTINES    **
 *****************************/
-
-#if 0
-
-/****************************
-** StartStopwatch
-** Starts a software stopwatch.  Returns the first value of
-** the stopwatch in ticks.
-*/
-unsigned long StartStopwatch()
-{
-#ifdef MACTIMEMGR
-    /*
-     ** For Mac code warrior, use timer. In this case, what we return is really
-     ** a dummy value.
-     */
-    InsTime((QElemPtr)&myTMTask);
-    PrimeTime((QElemPtr)&myTMTask,-MacHSTdelay);
-    return((unsigned long)1);
-#else
-#ifdef WIN31TIMER
-    /*
-     ** Win 3.x timer returns a DWORD, which we coax into a long.
-     */
-    _Call16(lpfn,"p",&win31tinfo);
-    return((unsigned long)win31tinfo.dwmsSinceStart);
-#else
-    return((unsigned long)clock());
-#endif
-#endif
-}
-
-/****************************
-** StopStopwatch
-** Stops the software stopwatch.  Expects as an input argument
-** the stopwatch start time.
-*/
-unsigned long StopStopwatch(unsigned long startticks)
-{
-
-#ifdef MACTIMEMGR
-    /*
-     ** For Mac code warrior...ignore startticks.  Return val. in microseconds
-     */
-    RmvTime((QElemPtr)&myTMTask);
-    return((unsigned long)(MacHSTdelay+myTMTask.tmCount-MacHSTohead));
-#else
-#ifdef WIN31TIMER
-    _Call16(lpfn,"p",&win31tinfo);
-    return((unsigned long)win31tinfo.dwmsSinceStart-startticks);
-#else
-    return((unsigned long)clock()-startticks);
-#endif
-#endif
-}
-
-/****************************
-** TicksToSecs
-** Converts ticks to seconds.  Converts ticks to integer
-** seconds, discarding any fractional amount.
-*/
-unsigned long TicksToSecs(unsigned long tickamount)
-{
-#ifdef CLOCKWCT
-    return((unsigned long)(tickamount/CLK_TCK));
-#endif
-
-#ifdef MACTIMEMGR
-    /* +++ MAC time manager version (using timer in microseconds) +++ */
-    return((unsigned long)(tickamount/1000000));
-#endif
-
-#ifdef CLOCKWCPS
-    /* Everybody else */
-    return((unsigned long)(tickamount/CLOCKS_PER_SEC));
-#endif
-
-#ifdef WIN31TIMER
-    /* Each tick is 840 nanoseconds */
-    return((unsigned long)(tickamount/1000L));
-#endif
-
-#ifdef CLOCK_GETTIME
-    return((unsigned long)(tickamount/CLOCKS_PER_SEC));
-#endif
-
-}
-
-/****************************
-** TicksToFracSecs
-** Converts ticks to fractional seconds.  In other words,
-** this returns the exact conversion from ticks to
-** seconds.
-*/
-double TicksToFracSecs(unsigned long tickamount)
-{
-#ifdef CLOCKWCT
-    return((double)tickamount/(double)CLK_TCK);
-#endif
-
-#ifdef MACTIMEMGR
-    /* +++ MAC time manager version +++ */
-    return((double)tickamount/(double)1000000);
-#endif
-
-#ifdef CLOCKWCPS
-    /* Everybody else */
-    return((double)tickamount/(double)CLOCKS_PER_SEC);
-#endif
-
-#ifdef WIN31TIMER
-    /* Using 840 nanosecond ticks */
-    return((double)tickamount/(double)1000);
-#endif
-
-#ifdef CLOCK_GETTIME
-    return((double)tickamount/(double)CLOCKS_PER_SEC);
-#endif
-}
-
-#endif
 
 /**********************************************
 ** InitStopWatch

@@ -26,7 +26,9 @@
 */
 
 /* is this a 64 bit architecture? If so, this will define LONG64 */
+#ifndef DOS16
 #include "pointer.h"
+#endif
 
 /* to avoid compiling issue in linux */
 #include <stdlib.h>
@@ -41,7 +43,6 @@
 ** You must define ONLY ONE of the following identifiers
 ** to specify the mechanism for allocating memory:
 ** MALLOCMEM
-** DOS16MEM
 ** MACMEM
 */
 
@@ -50,15 +51,6 @@
 ** memory.  This is the default for most systems.
 */
 #define MALLOCMEM
-
-/*
-** Define DOS16MEM if you're running in the old 16-bit segmented
-** model.  This enables some fruity memory management routines
-** required for that model.  NOT defining this assumes that
-** you're running in an environment that allows malloc() to
-** get > 64K chunks of memory.
-*/
-/* #define DOS16MEM */
 
 /* Define MACMEM to use the Mac's GetPtr call to allocate
 ** memory (instead of malloc()).
@@ -170,7 +162,7 @@
 ** This ultimately gets loaded into the variable
 ** global_min_itersec, which specifies the minimum
 ** time in seconds that must take place between
-** a StartStopwatch() and StopStopwatch() call.
+** a StartStopWatch() and StopStopWatch() call.
 ** The idea is to reduce error buildup.
 */
 #define MINIMUM_ITERATION_SECONDS 0.1
@@ -207,6 +199,8 @@
 */
 #define MEM_ARRAY_SIZE 20
 
+#define CONFIDENCE_LOOPS 3
+
 /*
 ** TYPEDEFS
 */
@@ -214,27 +208,6 @@
 #define uchar unsigned char
 #define uint unsigned int
 #define ushort unsigned short
-/*
-typedef unsigned char uchar;
-typedef unsigned int uint;
-typedef unsigned short ushort;
-typedef unsigned long ulong;
-*/
-/*
-** The 'farxxx' typedefs were added in deference to DOS, which
-** requires far pointers to handle some of the bigger
-** memory structures.  Other systems will simply
-** map 'farxxx' to 'xxx'
-*/
-#ifdef DOS16
-typedef void huge farvoid;
-typedef double huge fardouble;
-typedef long huge farlong;
-typedef unsigned long huge farulong;
-typedef char huge farchar;
-typedef unsigned char huge faruchar;
-
-#else
 
 typedef void farvoid;
 typedef double fardouble;
@@ -242,8 +215,6 @@ typedef long farlong;
 typedef unsigned long farulong;
 typedef char farchar;
 typedef unsigned char faruchar;
-
-#endif
 
 /*
 ** The following typedefs are used when element size
@@ -355,11 +326,15 @@ typedef struct {
 /*
 ** Following field sets the size of the bitfield array (in longs).
 */
-#ifdef LONG64
+#if defined(DOS16)
+#define BITFARRAYSIZE 16000L   // 16000*4=64000 bytes < 64K
+#elif defined(LONG64)
 #define BITFARRAYSIZE 16384L
 #else
 #define BITFARRAYSIZE 32768L
 #endif
+
+#define BITOPS_PER_UNIT 1e-6
 
 /*
 ** TYPEDEFS
@@ -423,6 +398,8 @@ typedef struct {
 /*************************
 ** ASSIGNMENT ALGORITHM **
 *************************/
+
+#define FLOPS_PER_UNIT 1e-3
 
 /*
 ** TYPEDEFS

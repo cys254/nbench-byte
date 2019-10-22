@@ -115,6 +115,9 @@ void DoNumSortAdjust(TestControlStruct *numsortstruct)
 {
     if(numsortstruct->adjust==0)
     {
+#ifdef DOS16
+         numsortstruct->numarrays=1;
+#else
         /*
          ** Self-adjustment code.  The system begins by sorting 1
          ** array.  If it does that in no time, then two arrays
@@ -162,6 +165,7 @@ void DoNumSortAdjust(TestControlStruct *numsortstruct)
                 ErrorExit();
             }
         }
+#endif
         numsortstruct->adjust = 1;
     }
 }

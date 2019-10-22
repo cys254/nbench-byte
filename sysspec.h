@@ -40,10 +40,6 @@
 ** System-specific includes
 */
 
-#ifdef DOS16MEM
-#include "dos.h"
-#endif
-
 /* #include "time.h"
 #include "io.h"
 #include "fcntl.h"
@@ -115,12 +111,6 @@ void MoveMemory( farvoid *destination,
                 farvoid *source,
                 unsigned long nbytes);
 
-#ifdef DOS16MEM
-void FarDOSmemmove(farvoid *destination,
-                farvoid *source,
-                unsigned long nbytes);
-#endif
-
 void InitMemArray(void);
 
 int AddMemArray(ulong true_addr, ulong adj_addr);
@@ -174,14 +164,6 @@ void writefile(FILE *fhandle,
                 int *errorcode);
 
 #endif
-
-unsigned long StartStopwatch();
-
-unsigned long StopStopwatch(unsigned long startticks);
-
-unsigned long TicksToSecs(unsigned long tickamount);
-
-double TicksToFracSecs(unsigned long tickamount);
 
 void InitStopWatch();
 

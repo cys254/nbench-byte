@@ -212,6 +212,9 @@ void DoHuffmanAdjust(TestControlStruct *lochuffstruct)
      */
     if(lochuffstruct->adjust==0)
     {
+#ifdef DOS16
+        lochuffstruct->loops=1L;
+#else
         HuffData huffdata;
         StopWatchStruct stopwatch;      /* Stop watch to time the test */
         HuffDataSetup(lochuffstruct, &huffdata);
@@ -234,6 +237,7 @@ void DoHuffmanAdjust(TestControlStruct *lochuffstruct)
             if(stopwatch.realsecs>global_min_itersec) break;
         }
         HuffDataCleanup(&huffdata);
+#endif
         lochuffstruct->adjust=1;
     }
 }

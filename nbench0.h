@@ -121,9 +121,9 @@ char *ftestnames[] = {
 double bindex[] = {
     38.993,                     /* Numeric sort */
     2.238,                      /* String sort */
-    5829704,                    /* Bitfield */
+    5829704*BITOPS_PER_UNIT,                    /* Bitfield */
     2.084,                      /* FP Emulation */
-    879.278,                    /* Fourier */
+    879.278*FLOPS_PER_UNIT,                    /* Fourier */
     .2628,                      /* Assignment */
     65.382,                     /* IDEA */
     36.062,                     /* Huffman */
@@ -138,9 +138,9 @@ double bindex[] = {
 double lx_bindex[] = {
       118.73, 	    /* Numeric sort */
       14.459,	    /* String sort */
-    27910000,	    /* Bitfield */
+    27910000*BITOPS_PER_UNIT,	    /* Bitfield */
       9.0314,	    /* FP Emulation */
-      1565.5,	    /* Fourier */
+      1565.5*FLOPS_PER_UNIT,	    /* Fourier */
       1.0132,	    /* Assignment */
       220.21,	    /* IDEA */
       112.93,	    /* Huffman */

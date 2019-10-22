@@ -1,0 +1,95 @@
+# Makefile for nbench, December 11, 1997, Uwe F. Mayer <mayer@tux.org>
+# Updated February 18, 2003
+
+default: nbench
+
+##########################################################################
+# For Linux machines with more than one binary format.
+# The default binaries, depends on your system whether it's elf or aout.
+MACHINE=
+
+##########################################################################
+# Read the file README.nonlinux if you are not using Linux
+
+##########################################################################
+# For any Unix flavor you need -DLINUX
+# You also need -DLINUX to get the new indices
+
+CC=gcc
+CFLAGS = -s -static -Wall -O3 -fomit-frame-pointer -funroll-loops
+DEFINES= -DLINUX $(NO_UNAME) -DUSE_PTHREAD
+LIBS= -lm -lpthread -lrt
+
+##########################################################################
+# For non-LINUX systems
+# Edit the files sysinfo.c and sysinfoc.c to include your system information
+# and take sysinfo.c and sysinfoc.c out of the dependencies for nbench0.o
+
+nbench0.o: nbench0.h nbench0.c nmglobal.h pointer.h hardware.h\
+	   Makefile sysinfo.c sysinfoc.c
+	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
+		-c nbench0.c
+
+emfloat.o: emfloat.h emfloat.c nmglobal.h sysspec.h
+	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
+		-c emfloat.c
+
+misc.o: misc.h misc.c Makefile
+	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
+		-c misc.c
+
+numsort.o: numsort.c nmglobal.h sysspec.h misc.h
+	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
+		-c numsort.c
+
+strsort.o: strsort.c nmglobal.h sysspec.h misc.h
+	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
+		-c strsort.c
+
+bitfield.o: bitfield.c nmglobal.h sysspec.h misc.h
+	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
+		-c bitfield.c
+
+fourier.o: fourier.c nmglobal.h sysspec.h
+	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
+		-c fourier.c
+
+assign.o: assign.c nmglobal.h sysspec.h misc.h
+	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
+		-c assign.c
+
+idea.o: idea.c nmglobal.h sysspec.h misc.h
+	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
+		-c idea.c
+
+huffman.o: huffman.c nmglobal.h sysspec.h misc.h wordcat.h
+	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
+		-c huffman.c
+
+lu.o: lu.c nmglobal.h sysspec.h misc.h
+	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
+		-c lu.c
+
+nnet.o: nnet.c nmglobal.h sysspec.h misc.h
+	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
+		-c nnet.c
+
+sysspec.o: sysspec.h sysspec.c nmglobal.h
+	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
+		-c sysspec.c
+
+nbench: emfloat.o misc.o nbench0.o sysspec.o hardware.o\
+		numsort.o strsort.o bitfield.o fourier.o assign.o idea.o huffman.o nnet.o lu.o
+	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS) $(LINKFLAGS)\
+		emfloat.o misc.o nbench0.o sysspec.o hardware.o\
+		numsort.o strsort.o bitfield.o fourier.o assign.o idea.o huffman.o nnet.o lu.o \
+		-o nbench $(LIBS)
+
+##########################################################################
+
+clean:
+	- /bin/rm -f *.o *~ \#* core a.out hello sysinfo.c sysinfoc.c \
+		 bug pointer pointer.h debugbit.dat
+
+mrproper: clean
+	- /bin/rm -f nbench
