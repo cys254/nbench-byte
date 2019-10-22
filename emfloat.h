@@ -29,7 +29,9 @@
 
 /* Is this a 64 bit architecture? If so, this will define LONG64 */
 /* Uwe F. Mayer 15 November 1997                                 */
+#ifndef DOS16
 #include "pointer.h"
+#endif
 
 /*
 ** DEFINES

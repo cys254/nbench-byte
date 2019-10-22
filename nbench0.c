@@ -54,7 +54,9 @@
 #include "nmglobal.h"
 #include "sysspec.h"
 #include "nbench0.h"
+#ifdef LINUX
 #include "hardware.h"
+#endif
 
 /*
 ** Following array is a collection of flags indicating which
