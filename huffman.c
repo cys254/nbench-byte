@@ -69,9 +69,9 @@ typedef struct {
 
 typedef struct {
     HuffStruct *lochuffstruct;      /* Loc pointer to global data */
-    farchar *comparray;
-    farchar *decomparray;
-    farchar *plaintext;
+    char *comparray;
+    char *decomparray;
+    char *plaintext;
     huff_node *hufftree;             /* The huffman tree */
 } HuffData;
 
@@ -81,11 +81,11 @@ typedef struct {
 void DoHuffman();
 void DoHuffmanAdjust(TestControlStruct *lochuffstruct);
 void *HuffmanFunc(void *data);
-static void create_text_line(farchar *dt,long nchars);
-static void create_text_block(farchar *tb, ulong tblen,
+static void create_text_line(char *dt,long nchars);
+static void create_text_block(char *tb, ulong tblen,
 		ushort maxlinlen);
-static void DoHuffIteration(farchar *plaintext,
-	farchar *comparray, farchar *decomparray,
+static void DoHuffIteration(char *plaintext,
+	char *comparray, char *decomparray,
 	ulong arraysize, ulong nloops, huff_node *hufftree, StopWatchStruct *stopwatch);
 static void SetCompBit(u8 *comparray, u32 bitoffset, char bitchar);
 static int GetCompBit(u8 *comparray, u32 bitoffset);
@@ -139,20 +139,20 @@ void HuffDataSetup(TestControlStruct *lochuffstruct, HuffData *huffdata)
      ** than 512 bytes.  This is actually a super-conservative
      ** estimate...but, who cares?)
      */
-    huffdata->plaintext=(farchar *)AllocateMemory(lochuffstruct->arraysize,&systemerror);
+    huffdata->plaintext=(char *)AllocateMemory(lochuffstruct->arraysize,&systemerror);
     if(systemerror)
     {
         ReportError(lochuffstruct->errorcontext,systemerror);
         ErrorExit();
     }
-    huffdata->comparray=(farchar *)AllocateMemory(lochuffstruct->arraysize,&systemerror);
+    huffdata->comparray=(char *)AllocateMemory(lochuffstruct->arraysize,&systemerror);
     if(systemerror)
     {
         ReportError(lochuffstruct->errorcontext,systemerror);
         FreeMemory(huffdata->plaintext,&systemerror);
         ErrorExit();
     }
-    huffdata->decomparray=(farchar *)AllocateMemory(lochuffstruct->arraysize,&systemerror);
+    huffdata->decomparray=(char *)AllocateMemory(lochuffstruct->arraysize,&systemerror);
     if(systemerror)
     {
         ReportError(lochuffstruct->errorcontext,systemerror);
@@ -194,10 +194,10 @@ void HuffDataSetup(TestControlStruct *lochuffstruct, HuffData *huffdata)
 void HuffDataCleanup(HuffData *huffdata)
 {
     int systemerror;
-    FreeMemory((farvoid *)huffdata->plaintext,&systemerror);
-    FreeMemory((farvoid *)huffdata->comparray,&systemerror);
-    FreeMemory((farvoid *)huffdata->decomparray,&systemerror);
-    FreeMemory((farvoid *)huffdata->hufftree,&systemerror);
+    FreeMemory((void *)huffdata->plaintext,&systemerror);
+    FreeMemory((void *)huffdata->comparray,&systemerror);
+    FreeMemory((void *)huffdata->decomparray,&systemerror);
+    FreeMemory((void *)huffdata->hufftree,&systemerror);
 }
 
 /********************
@@ -294,13 +294,13 @@ void *HuffmanFunc(void *data)
 ** Create a random line of text, stored at *dt.  The line may be
 ** no more than nchars long.
 */
-static void create_text_line(farchar *dt,
+static void create_text_line(char *dt,
             long nchars)
 {
     long charssofar;        /* # of characters so far */
     long tomove;            /* # of characters to move */
     char myword[40];        /* Local buffer for words */
-    farchar *wordptr;       /* Pointer to word from catalog */
+    char *wordptr;       /* Pointer to word from catalog */
 
     charssofar=0;
 
@@ -310,8 +310,8 @@ static void create_text_line(farchar *dt,
          */
         /* wordptr=wordcatarray[abs_randwc((long)WORDCATSIZE)];*/
         wordptr=wordcatarray[abs_randwc((int32)WORDCATSIZE)];
-        MoveMemory((farvoid *)myword,
-                (farvoid *)wordptr,
+        MoveMemory((void *)myword,
+                (void *)wordptr,
                 (unsigned long)strlen(wordptr)+1);
 
         /*
@@ -329,7 +329,7 @@ static void create_text_line(farchar *dt,
         /*
          ** Attach the word to the current line.  Increment counter.
          */
-        MoveMemory((farvoid *)dt,(farvoid *)myword,(unsigned long)tomove);
+        MoveMemory((void *)dt,(void *)myword,(unsigned long)tomove);
         charssofar+=tomove;
         dt+=tomove;
 
@@ -352,7 +352,7 @@ static void create_text_line(farchar *dt,
 ** maxlinlen is the maximum length of any line (line end indicated
 **  by a carriage return).
 */
-static void create_text_block(farchar *tb,
+static void create_text_block(char *tb,
             ulong tblen,
             ushort maxlinlen)
 {
@@ -392,9 +392,9 @@ static void create_text_block(farchar *tb,
 **  (b) Compresses the text
 **  (c) Decompresses the text and verifies correct decompression
 */
-static void DoHuffIteration(farchar *plaintext,
-    farchar *comparray,
-    farchar *decomparray,
+static void DoHuffIteration(char *plaintext,
+    char *comparray,
+    char *decomparray,
     ulong arraysize,
     ulong nloops,
     huff_node *hufftree,

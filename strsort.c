@@ -59,31 +59,31 @@ void DoStringSort(void);
 void DoStringSortAdjust(TestControlStruct *strsortstruct);
 
 static void *StringSortFunc(void *data);
-static void DoStringSortIteration(faruchar *arraybase,
+static void DoStringSortIteration(uchar *arraybase,
 		uint numarrays,
 		ulong arraysize,
         StopWatchStruct *stopwatch);
-static farulong *LoadStringArray(faruchar *strarray,
+static ulong *LoadStringArray(uchar *strarray,
 		uint numarrays,
 		ulong *strings,
 		ulong arraysize);
-static void stradjust(farulong *optrarray,
-		faruchar *strarray,
+static void stradjust(ulong *optrarray,
+		uchar *strarray,
 		ulong nstrings,
 		ulong i,
 		uchar l);
-static void StrHeapSort(farulong *optrarray,
-		faruchar *strarray,
+static void StrHeapSort(ulong *optrarray,
+		uchar *strarray,
 		ulong numstrings,
 		ulong bottom,
 		ulong top);
-static int str_is_less(farulong *optrarray,
-		faruchar *strarray,
+static int str_is_less(ulong *optrarray,
+		uchar *strarray,
 		ulong numstrings,
 		ulong a,
 		ulong b);
-static void strsift(farulong *optrarray,
-		faruchar *strarray,
+static void strsift(ulong *optrarray,
+		uchar *strarray,
 		ulong numstrings,
 		ulong i,
 		ulong j);
@@ -128,7 +128,7 @@ void DoStringSortAdjust(TestControlStruct *strsortstruct)
 #ifdef DOS16
         strsortstruct->numarrays=1;
 #else
-        faruchar *arraybase;            /* Base pointer of char array */
+        uchar *arraybase;            /* Base pointer of char array */
         StopWatchStruct stopwatch;      /* Stop watch to time the test */
         int systemerror;                /* For holding error code */
         /*
@@ -142,7 +142,7 @@ void DoStringSortAdjust(TestControlStruct *strsortstruct)
              ** bytes to protect memory as strings move around
              ** (this can happen during string adjustment)
              */
-            arraybase=(faruchar *)AllocateMemory((strsortstruct->arraysize+100L) *
+            arraybase=(uchar *)AllocateMemory((strsortstruct->arraysize+100L) *
                     (long)strsortstruct->numarrays,&systemerror);
             if(systemerror)
             {
@@ -162,7 +162,7 @@ void DoStringSortAdjust(TestControlStruct *strsortstruct)
                         strsortstruct->numarrays,
                         strsortstruct->arraysize, &stopwatch);
 
-            FreeMemory((farvoid *)arraybase,&systemerror);
+            FreeMemory((void *)arraybase,&systemerror);
 
             if(stopwatch.realsecs > global_min_itersec)
                 break;          /* We're ok...exit */
@@ -177,7 +177,7 @@ void DoStringSortAdjust(TestControlStruct *strsortstruct)
 void *StringSortFunc(void *data)
 {
     TestThreadData *testdata;       /* test data passed from thread func */
-    faruchar *arraybase;            /* Base pointer of char array */
+    uchar *arraybase;            /* Base pointer of char array */
     StopWatchStruct stopwatch;      /* Stop watch to time the test */
     int systemerror;                /* For holding error code */
     TestControlStruct *strsortstruct;      /* Local pointer to global struct */
@@ -188,7 +188,7 @@ void *StringSortFunc(void *data)
     /*
      ** Allocate the space for the array.
      */
-    arraybase=(faruchar *)AllocateMemory((strsortstruct->arraysize+100L) *
+    arraybase=(uchar *)AllocateMemory((strsortstruct->arraysize+100L) *
                 (long)strsortstruct->numarrays,&systemerror);
     if(systemerror)
     {
@@ -215,7 +215,7 @@ void *StringSortFunc(void *data)
      ** Clean up, calculate results, and go home.
      ** Set flag to show we don't need to rerun adjustment code.
      */
-    FreeMemory((farvoid *)arraybase,&systemerror);
+    FreeMemory((void *)arraybase,&systemerror);
 
     testdata->result.cpusecs = stopwatch.cpusecs;
     testdata->result.realsecs = stopwatch.realsecs;
@@ -230,15 +230,15 @@ void *StringSortFunc(void *data)
 ** Note that this routine also builds the offset pointer
 ** array.
 */
-static void DoStringSortIteration(faruchar *arraybase,
+static void DoStringSortIteration(uchar *arraybase,
         uint numarrays,ulong arraysize,StopWatchStruct *stopwatch)
 {
-    farulong *optrarray;            /* Offset pointer array */
+    ulong *optrarray;            /* Offset pointer array */
     unsigned long nstrings;         /* # of strings in array */
     int syserror;                   /* System error code */
     unsigned int i;                 /* Index */
-    farulong *tempobase;            /* Temporary offset pointer base */
-    faruchar *tempsbase;            /* Temporary string base pointer */
+    ulong *tempobase;            /* Temporary offset pointer base */
+    uchar *tempsbase;            /* Temporary string base pointer */
 
     /*
      ** Load up the array(s) with random numbers
@@ -294,7 +294,7 @@ static void DoStringSortIteration(faruchar *arraybase,
      ** Release the offset pointer array built by
      ** LoadStringArray()
      */
-    FreeMemory((farvoid *)optrarray,&syserror);
+    FreeMemory((void *)optrarray,&syserror);
 }
 
 /********************
@@ -306,14 +306,14 @@ static void DoStringSortIteration(faruchar *arraybase,
 ** Note that since we're creating a number of arrays, this
 ** routine builds one array, then copies it into the others.
 */
-static farulong *LoadStringArray(faruchar *strarray, /* String array */
+static ulong *LoadStringArray(uchar *strarray, /* String array */
     uint numarrays,                 /* # of arrays */
     ulong *nstrings,                /* # of strings */
     ulong arraysize)                /* Size of array */
 {
-    faruchar *tempsbase;            /* Temporary string base pointer */
-    farulong *optrarray;            /* Local for pointer */
-    farulong *tempobase;            /* Temporary offset pointer base pointer */
+    uchar *tempsbase;            /* Temporary string base pointer */
+    ulong *optrarray;            /* Local for pointer */
+    ulong *tempobase;            /* Temporary offset pointer base pointer */
     unsigned long curroffset;       /* Current offset */
     int fullflag;                   /* Indicates full array */
     unsigned char stringlength;     /* Length of string */
@@ -394,7 +394,7 @@ static farulong *LoadStringArray(faruchar *strarray, /* String array */
      ** Now the array is full, allocate enough space for an
      ** offset pointer array.
      */
-    optrarray=(farulong *)AllocateMemory(*nstrings * sizeof(unsigned long) *
+    optrarray=(ulong *)AllocateMemory(*nstrings * sizeof(unsigned long) *
             numarrays,
             &systemerror);
     if(systemerror)
@@ -444,8 +444,8 @@ static farulong *LoadStringArray(faruchar *strarray, /* String array */
 ** are moved accordingly and the length of the string at offset i
 ** is set to l.
 */
-static void stradjust(farulong *optrarray,      /* Offset pointer array */
-    faruchar *strarray,                     /* String array */
+static void stradjust(ulong *optrarray,      /* Offset pointer array */
+    uchar *strarray,                     /* String array */
     ulong nstrings,                         /* # of strings */
     ulong i,                                /* Offset to adjust */
     uchar l)                                /* New length */
@@ -489,8 +489,8 @@ static void stradjust(farulong *optrarray,      /* Offset pointer array */
      ** Hand this straight to memmove and let it handle the
      ** "overlap" problem.
      */
-    MoveMemory((farvoid *)(strarray+*(optrarray+i)+l+1),
-            (farvoid *)(strarray+*(optrarray+i+1)),
+    MoveMemory((void *)(strarray+*(optrarray+i)+l+1),
+            (void *)(strarray+*(optrarray+i+1)),
             (unsigned long)nbytes);
 
     /*
@@ -521,8 +521,8 @@ static void stradjust(farulong *optrarray,      /* Offset pointer array */
 ** an unsigned long indicating the number of strings
 ** in the array.
 */
-static void StrHeapSort(farulong *optrarray, /* Offset pointers */
-    faruchar *strarray,             /* Strings array */
+static void StrHeapSort(ulong *optrarray, /* Offset pointers */
+    uchar *strarray,             /* Strings array */
     ulong numstrings,               /* # of strings in array */
     ulong bottom,                   /* Region to sort...bottom */
     ulong top)                      /* Region to sort...top */
@@ -549,23 +549,23 @@ static void StrHeapSort(farulong *optrarray, /* Offset pointers */
 
         /* temp = string[0] */
         tlen=*strarray;
-        MoveMemory((farvoid *)&temp[0], /* Perform exchange */
-                (farvoid *)strarray,
+        MoveMemory((void *)&temp[0], /* Perform exchange */
+                (void *)strarray,
                 (unsigned long)(tlen+1));
 
 
         /* string[0]=string[i] */
         tlen=*(strarray+*(optrarray+i));
         stradjust(optrarray,strarray,numstrings,0,tlen);
-        MoveMemory((farvoid *)strarray,
-                (farvoid *)(strarray+*(optrarray+i)),
+        MoveMemory((void *)strarray,
+                (void *)(strarray+*(optrarray+i)),
                 (unsigned long)(tlen+1));
 
         /* string[i]=temp */
         tlen=temp[0];
         stradjust(optrarray,strarray,numstrings,i,tlen);
-        MoveMemory((farvoid *)(strarray+*(optrarray+i)),
-                (farvoid *)&temp[0],
+        MoveMemory((void *)(strarray+*(optrarray+i)),
+                (void *)&temp[0],
                 (unsigned long)(tlen+1));
 
     }
@@ -582,8 +582,8 @@ static void StrHeapSort(farulong *optrarray, /* Offset pointers */
 **      4) Offsets to two strings (a & b)
 ** This function returns TRUE if string a is < string b.
 */
-static int str_is_less(farulong *optrarray, /* Offset pointers */
-    faruchar *strarray,                     /* String array */
+static int str_is_less(ulong *optrarray, /* Offset pointers */
+    uchar *strarray,                     /* String array */
     ulong numstrings,                       /* # of strings */
     ulong a, ulong b)                       /* Offsets */
 {
@@ -629,8 +629,8 @@ static int str_is_less(farulong *optrarray, /* Offset pointers */
 ** Sift the array within the bounds of those offsets (thus
 ** building a heap).
 */
-static void strsift(farulong *optrarray,        /* Offset pointers */
-    faruchar *strarray,                     /* String array */
+static void strsift(ulong *optrarray,        /* Offset pointers */
+    uchar *strarray,                     /* String array */
     ulong numstrings,                       /* # of strings */
     ulong i, ulong j)                       /* Offsets */
 {
@@ -649,22 +649,22 @@ static void strsift(farulong *optrarray,        /* Offset pointers */
         {
             /* temp=string[k] */
             tlen=*(strarray+*(optrarray+k));
-            MoveMemory((farvoid *)&temp[0],
-                    (farvoid *)(strarray+*(optrarray+k)),
+            MoveMemory((void *)&temp[0],
+                    (void *)(strarray+*(optrarray+k)),
                     (unsigned long)(tlen+1));
 
             /* string[k]=string[i] */
             tlen=*(strarray+*(optrarray+i));
             stradjust(optrarray,strarray,numstrings,k,tlen);
-            MoveMemory((farvoid *)(strarray+*(optrarray+k)),
-                    (farvoid *)(strarray+*(optrarray+i)),
+            MoveMemory((void *)(strarray+*(optrarray+k)),
+                    (void *)(strarray+*(optrarray+i)),
                     (unsigned long)(tlen+1));
 
             /* string[i]=temp */
             tlen=temp[0];
             stradjust(optrarray,strarray,numstrings,i,tlen);
-            MoveMemory((farvoid *)(strarray+*(optrarray+i)),
-                    (farvoid *)&temp[0],
+            MoveMemory((void *)(strarray+*(optrarray+i)),
+                    (void *)&temp[0],
                     (unsigned long)(tlen+1));
             i=k;
         }

@@ -56,6 +56,28 @@ int global_align;		/* Memory alignment */
 int global_realtime_cid = CLOCK_MONOTONIC;  /* Clock ID used in clock_gettime */
 #endif
 
+#ifdef MACTIMEMGR
+#include <Types.h>
+#include <Timer.h>
+/*
+** Timer globals for Mac
+*/
+struct TMTask myTMTask;
+long MacHSTdelay,MacHSTohead;
+
+#endif
+
+/*
+** Windows 3.1 timer defines
+*/
+#ifdef WIN31TIMER
+#include <windows.h>
+#include <toolhelp.h>
+TIMERINFO win31tinfo;
+HANDLE hThlp;
+FARPROC lpfn;
+#endif
+
 /*
 ** Following global is the memory array.  This is used to store
 ** original and aligned (modified) memory addresses.
@@ -84,16 +106,16 @@ pthread_mutex_t master_lock = PTHREAD_MUTEX_INITIALIZER;
 ** Currently, mem_array[][] is only used if you use malloc;
 **  it is not used for the MAC versions.
 */
-farvoid *AllocateMemory(unsigned long nbytes,   /* # of bytes to alloc */
+void *AllocateMemory(unsigned long nbytes,   /* # of bytes to alloc */
 		int *errorcode)                 /* Returned error code */
 {
 #ifdef MACMEM
     /*
      ** For MAC CodeWarrior, we'll use the MacOS NewPtr call
      */
-    farvoid *returnval;
-    returnval=(farvoid *)NewPtr((Size)nbytes);
-    if(returnval==(farvoid *)NULL)
+    void *returnval;
+    returnval=(void *)NewPtr((Size)nbytes);
+    if(returnval==(void *)NULL)
         *errorcode=ERROR_MEMORY;
     else
         *errorcode=0;
@@ -106,12 +128,12 @@ farvoid *AllocateMemory(unsigned long nbytes,   /* # of bytes to alloc */
      ** that you use a 32-bit compiler which treats size_t as
      ** a 4-byte entity.
      */
-    farvoid *returnval;             /* Return value */
+    void *returnval;             /* Return value */
     ulong true_addr;		/* True address */
     ulong adj_addr;			/* Adjusted address */
 
-    returnval=(farvoid *)malloc((size_t)(nbytes+2L*(long)global_align));
-    if(returnval==(farvoid *)NULL)
+    returnval=(void *)malloc((size_t)(nbytes+2L*(long)global_align));
+    if(returnval==(void *)NULL)
         *errorcode=ERROR_MEMORY;
     else
         *errorcode=0;
@@ -151,7 +173,7 @@ farvoid *AllocateMemory(unsigned long nbytes,   /* # of bytes to alloc */
 ** block passed in is freed.  Should an error occur,
 ** that error is returned in errorcode.
 */
-void FreeMemory(farvoid *mempointer,    /* Pointer to memory block */
+void FreeMemory(void *mempointer,    /* Pointer to memory block */
 		int *errorcode)
 {
 
@@ -184,8 +206,8 @@ void FreeMemory(farvoid *mempointer,    /* Pointer to memory block */
 ** In most cases, this is just a memmove operation.
 ** But, not in DOS....noooo....
 */
-void MoveMemory( farvoid *destination,  /* Destination address */
-		farvoid *source,        /* Source address */
+void MoveMemory( void *destination,  /* Destination address */
+		void *source,        /* Source address */
 		unsigned long nbytes)
 {
 
@@ -662,13 +684,39 @@ void InitStopWatch()
 
     if (!err) {
         /*
-      .  * determine minimum iteration time to be 50x clock resolution but cap to 1s
+      .  * determine minimum iteration time to be 100x clock resolution but cap to 1s
         */
         timeres = ts.tv_sec + ts.tv_nsec * 1e-9;
-        global_min_itersec = timeres * 50.0;
-        if (global_min_itersec > 0.1) {
-            global_min_itersec = 0.1;
+        global_min_itersec = timeres * 100.0;
+        if (global_min_itersec > MINIMUM_ITERATION_SECONDS) {
+            global_min_itersec = MINIMUM_ITERATION_SECONDS;
         }
+    }
+#endif
+
+#ifdef MACTIMEMGR
+    /* Set up high res timer */
+    MacHSTdelay=600*1000*1000;      /* Delay is 10 minutes */
+
+    memset((char *)&myTMTask,0,sizeof(TMTask));
+
+    /* Prime and remove the task, calculating overhead */
+    PrimeTime((QElemPtr)&myTMTask,-MacHSTdelay);
+    RmvTime((QElemPtr)&myTMTask);
+    MacHSTohead=MacHSTdelay+myTMTask.tmCount;
+#endif
+
+#ifdef WIN31TIMER
+    /* Load library */
+    if((hThlp=LoadLibrary("TOOLHELP.DLL"))<32)
+    {
+        printf("Error loading TOOLHELP\n");
+        exit(0);
+    }
+    if(!(lpfn=GetProcAddress(hThlp,"TimerCount")))
+    {
+        printf("TOOLHELP error\n");
+        exit(0);
     }
 #endif
 }
@@ -753,4 +801,8 @@ void ResetStopWatch(StopWatchStruct *stopwatch)
 {
     stopwatch->cpusecs = 0.0;
     stopwatch->realsecs = 0.0;
+#ifdef WIN31TIMER
+    /* Set up the size of the timer info structure */
+    stopwatch0->win31tinfo.dwSize=(DWORD)sizeof(TIMERINFO);
+#endif
 }

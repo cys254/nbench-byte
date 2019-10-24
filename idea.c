@@ -80,9 +80,9 @@ typedef struct {
     IDEAkey Z,DK;
     u16 userkey[8];
     int systemerror;
-    faruchar *plain1;               /* First plaintext buffer */
-    faruchar *crypt1;               /* Encryption buffer */
-    faruchar *plain2;               /* Second plaintext buffer */
+    uchar *plain1;               /* First plaintext buffer */
+    uchar *crypt1;               /* Encryption buffer */
+    uchar *plain2;               /* Second plaintext buffer */
 } IDEAData;
 
 /*
@@ -93,8 +93,8 @@ void IDEADataSetup(TestControlStruct *locideastruct, IDEAData *ideadata);
 void IDEADataCleanup(IDEAData *ideadata);
 void DoIDEAAdjust(TestControlStruct *locideastruct);
 void *IDEAFunc(void *data);
-static void DoIDEAIteration(faruchar *plain1,
-	faruchar *crypt1, faruchar *plain2,
+static void DoIDEAIteration(uchar *plain1,
+	uchar *crypt1, uchar *plain2,
 	ulong arraysize, ulong nloops,
 	IDEAkey Z, IDEAkey DK, StopWatchStruct *stopwatch);
 static u16 mul(register u16 a, register u16 b);
@@ -166,27 +166,27 @@ void IDEADataSetup(TestControlStruct *locideastruct, IDEAData *ideadata)
      ** So, plain1 and plain2 should match.
      ** Also, fill up plain1 with sample text.
      */
-    ideadata->plain1=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
+    ideadata->plain1=(uchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
     if(systemerror)
     {
         ReportError(locideastruct->errorcontext,systemerror);
         ErrorExit();
     }
 
-    ideadata->crypt1=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
+    ideadata->crypt1=(uchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
     if(systemerror)
     {
         ReportError(locideastruct->errorcontext,systemerror);
-        FreeMemory((farvoid *)ideadata->plain1,&systemerror);
+        FreeMemory((void *)ideadata->plain1,&systemerror);
         ErrorExit();
     }
 
-    ideadata->plain2=(faruchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
+    ideadata->plain2=(uchar *)AllocateMemory(locideastruct->arraysize,&systemerror);
     if(systemerror)
     {
         ReportError(locideastruct->errorcontext,systemerror);
-        FreeMemory((farvoid *)ideadata->plain1,&systemerror);
-        FreeMemory((farvoid *)ideadata->crypt1,&systemerror);
+        FreeMemory((void *)ideadata->plain1,&systemerror);
+        FreeMemory((void *)ideadata->crypt1,&systemerror);
         ErrorExit();
     }
 
@@ -206,9 +206,9 @@ void IDEADataSetup(TestControlStruct *locideastruct, IDEAData *ideadata)
 void IDEADataCleanup(IDEAData *ideadata)
 {
     int systemerror;
-    FreeMemory((farvoid *)ideadata->plain1,&systemerror);
-    FreeMemory((farvoid *)ideadata->crypt1,&systemerror);
-    FreeMemory((farvoid *)ideadata->plain2,&systemerror);
+    FreeMemory((void *)ideadata->plain1,&systemerror);
+    FreeMemory((void *)ideadata->crypt1,&systemerror);
+    FreeMemory((void *)ideadata->plain2,&systemerror);
 }
 
 
@@ -314,9 +314,9 @@ void *IDEAFunc(void *data)
 ** Actually, a single iteration is one encryption and one
 ** decryption.
 */
-static void DoIDEAIteration(faruchar *plain1,
-            faruchar *crypt1,
-            faruchar *plain2,
+static void DoIDEAIteration(uchar *plain1,
+            uchar *crypt1,
+            uchar *plain2,
             ulong arraysize,
             ulong nloops,
             IDEAkey Z,

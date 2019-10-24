@@ -105,8 +105,7 @@
 
 /*
 ** Define DOS16 if you'll be compiling under DOS in 16-bit
-** (non DOS-extended) mode.  This will enable proper definitions
-** for the far*** typedefs
+** (non DOS-extended) mode.
 */
 /* #define DOS16 */
 
@@ -165,7 +164,7 @@
 ** a StartStopWatch() and StopStopWatch() call.
 ** The idea is to reduce error buildup.
 */
-#define MINIMUM_ITERATION_SECONDS 0.1
+#define MINIMUM_ITERATION_SECONDS 1.0
 
 /*
 ** MINIMUM_SECONDS
@@ -197,7 +196,11 @@
 ** Memory array size.  Used in SYSSPEC for keeping track
 ** of re-aligned memory.
 */
+#ifdef USE_PTHREAD
+#define MEM_ARRAY_SIZE 80
+#else
 #define MEM_ARRAY_SIZE 20
+#endif
 
 #define CONFIDENCE_LOOPS 3
 
@@ -208,13 +211,6 @@
 #define uchar unsigned char
 #define uint unsigned int
 #define ushort unsigned short
-
-typedef void farvoid;
-typedef double fardouble;
-typedef long farlong;
-typedef unsigned long farulong;
-typedef char farchar;
-typedef unsigned char faruchar;
 
 /*
 ** The following typedefs are used when element size
@@ -327,14 +323,15 @@ typedef struct {
 ** Following field sets the size of the bitfield array (in longs).
 */
 #if defined(DOS16)
-#define BITFARRAYSIZE 16000L   // 16000*4=64000 bytes < 64K
+#define BITFARRAYSIZE 32000L   // 32000*2=64000 bytes < 64K
+typedef unsigned int bitfield_t;
 #elif defined(LONG64)
 #define BITFARRAYSIZE 16384L
+typedef unsigned long bitfield_t;
 #else
 #define BITFARRAYSIZE 32768L
+typedef unsigned long bitfield_t;
 #endif
-
-#define BITOPS_PER_UNIT 1e-6
 
 /*
 ** TYPEDEFS
@@ -398,8 +395,6 @@ typedef struct {
 /*************************
 ** ASSIGNMENT ALGORITHM **
 *************************/
-
-#define FLOPS_PER_UNIT 1e-3
 
 /*
 ** TYPEDEFS

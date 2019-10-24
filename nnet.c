@@ -117,8 +117,6 @@ typedef struct {
     int learned;            /* flag--if TRUE, network has learned all patterns */
 } NNetData;
 
-typedef NNetData * farnnetdataptr;
-
 /*
 ** PROTOTYPES
 */
@@ -159,6 +157,7 @@ char *inpath="NNET.DAT";
 */
 void DoNNET(void)
 {
+    int systemerror;                /* For holding error code */
     TestControlStruct *locnnetstruct;      /* Local ptr to global data */
 
     /*
@@ -177,7 +176,12 @@ void DoNNET(void)
         StopWatchStruct stopwatch;             /* Stop watch to time the test */
         NNetData *nnetdata;                    /* NNet test data */
 
-        nnetdata = (NNetData*)malloc(sizeof(NNetData));
+        nnetdata = (NNetData*)AllocateMemory(sizeof(NNetData), &systemerror);
+        if(systemerror)
+        {
+            ReportError(locnnetstruct->errorcontext,systemerror);
+            ErrorExit();
+        }
         memset(nnetdata, 0, sizeof(NNetData));
 
         /*
@@ -186,7 +190,7 @@ void DoNNET(void)
          ** change once loaded.
          */
         if(read_data_file(nnetdata)!=0) {
-            free(nnetdata);
+            FreeMemory((void *)nnetdata,&systemerror);
             ErrorExit();
         }
 
@@ -202,10 +206,9 @@ void DoNNET(void)
             randnum((int32)3);
             ResetStopWatch(&stopwatch);
             DoNNetIteration(nnetdata, locnnetstruct->loops, &stopwatch);
-             
             if(stopwatch.realsecs>global_min_itersec) break;
         }
-        free(nnetdata);
+        FreeMemory((void *)nnetdata,&systemerror);
 #endif
         locnnetstruct->adjust = 1;
     }
@@ -232,11 +235,17 @@ void *NNetFunc(void *data)
     TestControlStruct *locnnetstruct;      /* Local ptr to global data */
     StopWatchStruct stopwatch;             /* Stop watch to time the test */
     NNetData *nnetdata;                    /* NNet test data */
+    int systemerror;                /* For holding error code */
 
     testdata = (TestThreadData*)data;
     locnnetstruct = testdata->control;
 
-    nnetdata = (NNetData*)malloc(sizeof(NNetData));
+    nnetdata = (NNetData*)AllocateMemory(sizeof(NNetData), &systemerror);
+    if(systemerror)
+    {
+        ReportError(locnnetstruct->errorcontext,systemerror);
+        ErrorExit();
+    }
     memset(nnetdata, 0, sizeof(NNetData));
 
     /*
@@ -255,7 +264,7 @@ void *NNetFunc(void *data)
      ** change once loaded.
      */
     if(read_data_file(nnetdata)!=0) {
-        free(nnetdata);
+        FreeMemory((void *)nnetdata,&systemerror);
         ErrorExit();
     }
 
@@ -274,7 +283,7 @@ void *NNetFunc(void *data)
     testdata->result.cpusecs = stopwatch.cpusecs;
     testdata->result.realsecs = stopwatch.realsecs;
 
-    free(nnetdata);
+    FreeMemory((void *)nnetdata,&systemerror);
 
     return 0;
 }

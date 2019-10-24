@@ -119,16 +119,16 @@ sysinfo.c: Makefile
 ##########################################################################
 # For non-LINUX systems
 # Edit the files sysinfo.c and sysinfoc.c to include your system information
-# and take sysinfo.c and sysinfoc.c out of the dependencies for nbench0.o
+# and take sysinfo.c and sysinfoc.c out of the dependencies for nbench.o
 
 hardware.o: hardware.c hardware.h Makefile
 	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
 		-c hardware.c
 
-nbench0.o: nbench0.h nbench0.c nmglobal.h pointer.h hardware.h\
+nbench.o: nbench.h nbench.c nmglobal.h pointer.h hardware.h\
 	   Makefile sysinfo.c sysinfoc.c
 	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
-		-c nbench0.c
+		-c nbench.c
 
 emfloat.o: emfloat.h emfloat.c nmglobal.h sysspec.h
 	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
@@ -188,10 +188,10 @@ sysspec.o: sysspec.h sysspec.c nmglobal.h
 	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS)\
 		-c sysspec.c
 
-nbench: emfloat.o misc.o nbench0.o sysspec.o hardware.o\
+nbench: emfloat.o misc.o nbench.o sysspec.o hardware.o\
 		numsort.o strsort.o bitfield.o fourier.o assign.o idea.o huffman.o nnet.o lu.o
 	$(CC) $(MACHINE) $(DEFINES) $(CFLAGS) $(LINKFLAGS)\
-		emfloat.o misc.o nbench0.o sysspec.o hardware.o\
+		emfloat.o misc.o nbench.o sysspec.o hardware.o\
 		numsort.o strsort.o bitfield.o fourier.o assign.o idea.o huffman.o nnet.o lu.o \
 		-o nbench $(LIBS)
 

@@ -96,20 +96,21 @@ float global_iteration_factor=(float)LUARRAYROWS/DEFAULT_LUARRAYROWS*(LUARRAYROW
 ** TYPEDEFS
 */
 typedef struct
-{       union
-	{       fardouble *p;
-		fardouble (*ap)[][LUARRAYCOLS];
+{
+    union {
+        double *p;
+        double (*ap)[][LUARRAYCOLS];
 	} ptrs;
 } LUdblptr;
 
 typedef struct
 {
-    fardouble *a;
-    fardouble *b;
-    fardouble *abase;
-    fardouble *bbase;
+    double *a;
+    double *b;
+    double *abase;
+    double *bbase;
     LUdblptr ptra;
-    fardouble *LUtempvv;
+    double *LUtempvv;
 } LUData;
 
 /*
@@ -122,18 +123,18 @@ static void LUDataSetup(TestControlStruct *loclustruct, LUData *ludata);
 static void LUDataSetup1(LUData *ludata);
 static void LUDataSetup2(TestControlStruct *loclustruct, LUData *ludata, ushort numarrays);
 static void LUDataCleanup(LUData *ludata);
-static void DoLUIteration(fardouble *a, fardouble *b,
-	fardouble *abase, fardouble *bbase,
-	ulong numarrays, fardouble *LUtempvv, StopWatchStruct *stopwatch);
+static void DoLUIteration(double *a, double *b,
+	double *abase, double *bbase,
+	ulong numarrays, double *LUtempvv, StopWatchStruct *stopwatch);
 static void build_problem( double a[][LUARRAYCOLS],
 	int n, double b[LUARRAYROWS]);
 static int ludcmp(double a[][LUARRAYCOLS],
-	int n, int indx[], int *d, fardouble *LUtempvv);
+	int n, int indx[], int *d, double *LUtempvv);
 static void lubksb(double a[][LUARRAYCOLS],
 	int n, int indx[LUARRAYROWS],
 	double b[LUARRAYROWS]);
 static int lusolve(double a[][LUARRAYCOLS],
-	int n, double b[LUARRAYROWS], fardouble *LUtempvv);
+	int n, double b[LUARRAYROWS], double *LUtempvv);
 
 /*********
 ** DoLU **
@@ -189,9 +190,9 @@ static void LUDataSetup1(LUData *ludata)
      ** derived from. (I.E., we'll simply copy these arrays
      ** into the others.
      */
-    ludata->a=(fardouble *)AllocateMemory(sizeof(double) * LUARRAYCOLS * LUARRAYROWS,
+    ludata->a=(double *)AllocateMemory(sizeof(double) * LUARRAYCOLS * LUARRAYROWS,
             &systemerror);
-    ludata->b=(fardouble *)AllocateMemory(sizeof(double) * LUARRAYROWS,
+    ludata->b=(double *)AllocateMemory(sizeof(double) * LUARRAYROWS,
             &systemerror);
     n=LUARRAYROWS;
 
@@ -200,7 +201,7 @@ static void LUDataSetup1(LUData *ludata)
      ** algorithm.  This removes the allocation routine from the
      ** timing.
      */
-    ludata->LUtempvv=(fardouble *)AllocateMemory(sizeof(double)*LUARRAYROWS,
+    ludata->LUtempvv=(double *)AllocateMemory(sizeof(double)*LUARRAYROWS,
             &systemerror);
 
     /*
@@ -222,7 +223,7 @@ static void LUDataSetup2(TestControlStruct *loclustruct, LUData *ludata, ushort 
     /*
      ** allocate the proper number of arrays and proceed.
      */
-    ludata->abase=(fardouble *)AllocateMemory(sizeof(double) *
+    ludata->abase=(double *)AllocateMemory(sizeof(double) *
                 LUARRAYCOLS*LUARRAYROWS*numarrays,
                 &systemerror);
     if(systemerror)
@@ -232,7 +233,7 @@ static void LUDataSetup2(TestControlStruct *loclustruct, LUData *ludata, ushort 
         ErrorExit();
     }
 
-    ludata->bbase=(fardouble *)AllocateMemory(sizeof(double) *
+    ludata->bbase=(double *)AllocateMemory(sizeof(double) *
                 LUARRAYROWS*numarrays,&systemerror);
     if(systemerror)
     {
@@ -251,12 +252,12 @@ static void LUDataCleanup(LUData *ludata)
 {
     int systemerror;
 
-    FreeMemory((farvoid *)ludata->a,&systemerror);
-    FreeMemory((farvoid *)ludata->b,&systemerror);
-    FreeMemory((farvoid *)ludata->LUtempvv,&systemerror);
+    FreeMemory((void *)ludata->a,&systemerror);
+    FreeMemory((void *)ludata->b,&systemerror);
+    FreeMemory((void *)ludata->LUtempvv,&systemerror);
 
-    if(ludata->abase!=(fardouble *)NULL) FreeMemory((farvoid *)ludata->abase,&systemerror);
-    if(ludata->bbase!=(fardouble *)NULL) FreeMemory((farvoid *)ludata->bbase,&systemerror);
+    if(ludata->abase!=(double *)NULL) FreeMemory((void *)ludata->abase,&systemerror);
+    if(ludata->bbase!=(double *)NULL) FreeMemory((void *)ludata->bbase,&systemerror);
 }
 
 /*******************
@@ -268,8 +269,8 @@ static void LUDataCleanup2(LUData *ludata)
 {
     int systemerror;
 
-    if(ludata->abase!=(fardouble *)NULL) FreeMemory((farvoid *)ludata->abase,&systemerror);
-    if(ludata->bbase!=(fardouble *)NULL) FreeMemory((farvoid *)ludata->bbase,&systemerror);
+    if(ludata->abase!=(double *)NULL) FreeMemory((void *)ludata->abase,&systemerror);
+    if(ludata->bbase!=(double *)NULL) FreeMemory((void *)ludata->bbase,&systemerror);
     ludata->abase = 0;
     ludata->bbase = 0;
 }
@@ -372,14 +373,14 @@ void *LUFunc(void *data)
 ** An iteration refers to the repeated solution of several
 ** identical matrices.
 */
-static void DoLUIteration(fardouble *a,fardouble *b,
-        fardouble *abase, fardouble *bbase,
+static void DoLUIteration(double *a,double *b,
+        double *abase, double *bbase,
         ulong numarrays,
-        fardouble *LUtempvv,
+        double *LUtempvv,
         StopWatchStruct *stopwatch)
 {
-    fardouble *locabase;
-    fardouble *locbbase;
+    double *locabase;
+    double *locbbase;
     LUdblptr ptra;  /* For converting ptr to 2D array */
     ulong j,i;              /* Indexes */
 
@@ -538,7 +539,7 @@ static int ludcmp(double a[][LUARRAYCOLS],
         int n,
         int indx[],
         int *d,
-        fardouble *LUtempvv)
+        double *LUtempvv)
 {
 
     double big;     /* Holds largest element value */
@@ -692,7 +693,7 @@ static void lubksb( double a[][LUARRAYCOLS],
 static int lusolve(double a[][LUARRAYCOLS],
         int n,
         double b[LUARRAYROWS],
-        fardouble *LUtempvv)
+        double *LUtempvv)
 {
     int indx[LUARRAYROWS];
     int d;

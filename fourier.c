@@ -56,8 +56,8 @@ void DoFourier(void);
 void DoFourierAdjust(TestControlStruct *locfourierstruct);
 void *FourierFunc(void *data);
 
-static void DoFPUTransIteration(fardouble *abase,
-		fardouble *bbase,
+static void DoFPUTransIteration(double *abase,
+		double *bbase,
 		ulong arraysize,
                 StopWatchStruct *stopwatch);
 static double TrapezoidIntegrate(double x0,
@@ -112,8 +112,8 @@ void DoFourierAdjust(TestControlStruct *locfourierstruct)
      */
     if(locfourierstruct->adjust==0)
     {
-        fardouble *abase;               /* Base of A[] coefficients array */
-        fardouble *bbase;               /* Base of B[] coefficients array */
+        double *abase;               /* Base of A[] coefficients array */
+        double *bbase;               /* Base of B[] coefficients array */
         int systemerror;                /* For error code */
         StopWatchStruct stopwatch;
 
@@ -121,7 +121,7 @@ void DoFourierAdjust(TestControlStruct *locfourierstruct)
         while(1)
         {
 
-            abase=(fardouble *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
+            abase=(double *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
                     &systemerror);
             if(systemerror)
             {
@@ -129,7 +129,7 @@ void DoFourierAdjust(TestControlStruct *locfourierstruct)
                 ErrorExit();
             }
 
-            bbase=(fardouble *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
+            bbase=(double *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
                     &systemerror);
             if(systemerror)
             {
@@ -146,8 +146,8 @@ void DoFourierAdjust(TestControlStruct *locfourierstruct)
             DoFPUTransIteration(abase,bbase,
                         locfourierstruct->arraysize,&stopwatch);
 
-            FreeMemory((farvoid *)abase,&systemerror);
-            FreeMemory((farvoid *)bbase,&systemerror);
+            FreeMemory((void *)abase,&systemerror);
+            FreeMemory((void *)bbase,&systemerror);
 
             if(stopwatch.realsecs>global_min_itersec)
                 break;          /* We're ok...exit */
@@ -172,8 +172,8 @@ void DoFourierAdjust(TestControlStruct *locfourierstruct)
 void *FourierFunc(void *data)
 {
     TestThreadData *testdata;       /* test data passed from thread func */
-    fardouble *abase;               /* Base of A[] coefficients array */
-    fardouble *bbase;               /* Base of B[] coefficients array */
+    double *abase;               /* Base of A[] coefficients array */
+    double *bbase;               /* Base of B[] coefficients array */
     StopWatchStruct stopwatch;      /* Stop watch to time the test */
     int systemerror;                /* For error code */
     TestControlStruct *locfourierstruct;        /* Local fourier struct */
@@ -185,7 +185,7 @@ void *FourierFunc(void *data)
     /*
      ** Allocate the arrays and go.
      */
-    abase=(fardouble *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
+    abase=(double *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
                 &systemerror);
     if(systemerror)
     {
@@ -193,7 +193,7 @@ void *FourierFunc(void *data)
         ErrorExit();
     }
 
-    bbase=(fardouble *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
+    bbase=(double *)AllocateMemory(locfourierstruct->arraysize*sizeof(double),
                 &systemerror);
     if(systemerror)
     {
@@ -212,14 +212,14 @@ void *FourierFunc(void *data)
 
     do {
         DoFPUTransIteration(abase,bbase,locfourierstruct->arraysize,&stopwatch);
-        testdata->result.iterations+=(double)(locfourierstruct->arraysize*(double)2.0-(double)1.0)*FLOPS_PER_UNIT;
+        testdata->result.iterations+=(double)(locfourierstruct->arraysize*(double)2.0-(double)1.0);
     } while(stopwatch.realsecs<locfourierstruct->request_secs);
 
     /*
      ** Clean up, calculate results, and go home.
      */
-    FreeMemory((farvoid *)abase,&systemerror);
-    FreeMemory((farvoid *)bbase,&systemerror);
+    FreeMemory((void *)abase,&systemerror);
+    FreeMemory((void *)bbase,&systemerror);
 
     testdata->result.cpusecs = stopwatch.cpusecs;
     testdata->result.realsecs = stopwatch.realsecs;
@@ -238,8 +238,8 @@ void *FourierFunc(void *data)
 ** NOTE: The # of integration steps is fixed at
 ** 200.
 */
-static void DoFPUTransIteration(fardouble *abase,      /* A coeffs. */
-            fardouble *bbase,               /* B coeffs. */
+static void DoFPUTransIteration(double *abase,      /* A coeffs. */
+            double *bbase,               /* B coeffs. */
             ulong arraysize,                /* # of coeffs */
             StopWatchStruct *stopwatch)
 {

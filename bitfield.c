@@ -54,16 +54,16 @@ void DoBitops(void);
 void DoBitopsAdjust(TestControlStruct *strsortstruct);
 
 static void *BitopsFunc(void *data);
-static void DoBitfieldIteration(farulong *bitarraybase,
-		farulong *bitoparraybase,
+static void DoBitfieldIteration(bitfield_t *bitarraybase,
+		ulong *bitoparraybase,
 		long bitoparraysize,
 		ulong *nbitops,
         StopWatchStruct *stopwatch);
-static void ToggleBitRun(farulong *bitmap,
+static void ToggleBitRun(bitfield_t *bitmap,
 		ulong bit_addr,
 		ulong nbits,
 		uint val);
-static void FlipBitRun(farulong *bitmap,
+static void FlipBitRun(bitfield_t *bitmap,
 		ulong bit_addr,
 		ulong nbits);
 
@@ -97,16 +97,13 @@ void DoBitopsAdjust(TestControlStruct *locbitopstruct)
 {
     if(locbitopstruct->adjust==0)
     {
-#ifdef DOS16
-        locbitopstruct->bitoparraysize=3L;
-#else
-        farulong *bitarraybase;         /* Base of bitmap array */
-        farulong *bitoparraybase;       /* Base of bitmap operations array */
+        bitfield_t *bitarraybase;         /* Base of bitmap array */
+        ulong *bitoparraybase;       /* Base of bitmap operations array */
         ulong nbitops;                  /* # of bitfield operations */
         StopWatchStruct stopwatch;      /* Stop watch to time the test */
         int systemerror;                /* For holding error codes */
-        bitarraybase=(farulong *)AllocateMemory(locbitopstruct->bitfieldarraysize *
-                sizeof(ulong),&systemerror);
+        bitarraybase=(bitfield_t *)AllocateMemory(locbitopstruct->bitfieldarraysize *
+                sizeof(bitfield_t),&systemerror);
         if(systemerror)
         {
             ReportError(locbitopstruct->errorcontext,systemerror);
@@ -123,13 +120,13 @@ void DoBitopsAdjust(TestControlStruct *locbitopstruct)
             /*
              ** Allocate space for operations array
              */
-            bitoparraybase=(farulong *)AllocateMemory(locbitopstruct->bitoparraysize*2L*
+            bitoparraybase=(ulong *)AllocateMemory(locbitopstruct->bitoparraysize*2L*
                     sizeof(ulong),
                     &systemerror);
             if(systemerror)
             {
                 ReportError(locbitopstruct->errorcontext,systemerror);
-                FreeMemory((farvoid *)bitarraybase,&systemerror);
+                FreeMemory((void *)bitarraybase,&systemerror);
                 ErrorExit();
             }
             /*
@@ -149,7 +146,7 @@ void DoBitopsAdjust(TestControlStruct *locbitopstruct)
             if (locbitopstruct->bitoparraysize==3L){
                 /* this is the first loop, write a debug file */
                 FILE *file;
-                unsigned long *running_base; /* same as farulong */
+                unsigned long *running_base; /* same as ulong */
                 long counter;
                 file=fopen("debugbit.dat","w");
                 running_base=bitarraybase;
@@ -170,15 +167,15 @@ void DoBitopsAdjust(TestControlStruct *locbitopstruct)
 #endif
 #endif
 
-            FreeMemory((farvoid *)bitoparraybase,&systemerror);
+            FreeMemory((void *)bitoparraybase,&systemerror);
 
             if (stopwatch.realsecs>global_min_itersec) break;      /* We're ok...exit */
 
             locbitopstruct->bitoparraysize*=2;
         }
 
-        FreeMemory((farvoid *)bitarraybase,&systemerror);
-#endif
+        FreeMemory((void *)bitarraybase,&systemerror);
+
         /*
          ** Set adjustment flag to show that we don't have
          ** to do self adjusting in the future.
@@ -190,8 +187,8 @@ void DoBitopsAdjust(TestControlStruct *locbitopstruct)
 void *BitopsFunc(void *data)
 {
     TestThreadData *testdata;       /* test data passed from thread func */
-    farulong *bitarraybase;         /* Base of bitmap array */
-    farulong *bitoparraybase;       /* Base of bitmap operations array */
+    bitfield_t *bitarraybase;         /* Base of bitmap array */
+    ulong *bitoparraybase;       /* Base of bitmap operations array */
     ulong nbitops;                  /* # of bitfield operations */
     StopWatchStruct stopwatch;      /* Stop watch to time the test */
     int systemerror;                /* For holding error code */
@@ -203,20 +200,20 @@ void *BitopsFunc(void *data)
     /*
      ** allocate the array space.
      */
-    bitarraybase=(farulong *)AllocateMemory(locbitopstruct->bitfieldarraysize *
-                sizeof(ulong),&systemerror);
+    bitarraybase=(bitfield_t *)AllocateMemory(locbitopstruct->bitfieldarraysize *
+                sizeof(bitfield_t),&systemerror);
     if(systemerror)
     {
         ReportError(locbitopstruct->errorcontext,systemerror);
         ErrorExit();
     }
-    bitoparraybase=(farulong *)AllocateMemory(locbitopstruct->bitoparraysize*2L*
+    bitoparraybase=(ulong *)AllocateMemory(locbitopstruct->bitoparraysize*2L*
                 sizeof(ulong),
                 &systemerror);
     if(systemerror)
     {
         ReportError(locbitopstruct->errorcontext,systemerror);
-        FreeMemory((farvoid *)bitarraybase,&systemerror);
+        FreeMemory((void *)bitarraybase,&systemerror);
         ErrorExit();
     }
 
@@ -230,14 +227,14 @@ void *BitopsFunc(void *data)
     do {
         DoBitfieldIteration(bitarraybase, bitoparraybase,
                 locbitopstruct->bitoparraysize,&nbitops,&stopwatch);
-        testdata->result.iterations+=(double)nbitops*BITOPS_PER_UNIT;
+        testdata->result.iterations+=(double)nbitops;
     } while(stopwatch.realsecs<locbitopstruct->request_secs);
 
     /*
      ** Clean up, calculate results, and go home.
      */
-    FreeMemory((farvoid *)bitarraybase,&systemerror);
-    FreeMemory((farvoid *)bitoparraybase,&systemerror);
+    FreeMemory((void *)bitarraybase,&systemerror);
+    FreeMemory((void *)bitoparraybase,&systemerror);
 
     testdata->result.cpusecs = stopwatch.cpusecs;
     testdata->result.realsecs = stopwatch.realsecs;
@@ -252,8 +249,8 @@ void *BitopsFunc(void *data)
 ** Perform a single iteration of the bitfield benchmark.
 ** Return the # of ticks accumulated by the operation.
 */
-static void DoBitfieldIteration(farulong *bitarraybase,
-        farulong *bitoparraybase,
+static void DoBitfieldIteration(bitfield_t *bitarraybase,
+        ulong *bitoparraybase,
         long bitoparraysize,
         ulong *nbitops,
         StopWatchStruct *stopwatch)
@@ -282,7 +279,9 @@ static void DoBitfieldIteration(farulong *bitarraybase,
     randnum((int32)13);
     for (i=0;i<global_bitopstruct.bitfieldarraysize;i++)
     {
-#ifdef LONG64
+#if defined(DOS16)
+        *(bitarraybase+i)=(bitfield_t)0x5555;
+#elif defined(LONG64)
         *(bitarraybase+i)=(ulong)0x5555555555555555;
 #else
         *(bitarraybase+i)=(ulong)0x55555555;
@@ -293,13 +292,19 @@ static void DoBitfieldIteration(farulong *bitarraybase,
 
     for (i=0;i<bitoparraysize;i++)
     {
+#ifdef DOS16
         /* First item is offset */
-        /* *(bitoparraybase+i+i)=bitoffset=abs_randwc(262140L); */
+        *(bitoparraybase+i+i)=bitoffset=abs_randwc((int32)255996);
+
+        /* Next item is run length */
+        *nbitops+=*(bitoparraybase+i+i+1L)=abs_randwc((int32)255996-bitoffset);
+#else
+        /* First item is offset */
         *(bitoparraybase+i+i)=bitoffset=abs_randwc((int32)262140);
 
         /* Next item is run length */
-        /* *nbitops+=*(bitoparraybase+i+i+1L)=abs_randwc(262140L-bitoffset);*/
         *nbitops+=*(bitoparraybase+i+i+1L)=abs_randwc((int32)262140-bitoffset);
+#endif
     }
 
     /*
@@ -353,7 +358,7 @@ static void DoBitfieldIteration(farulong *bitarraybase,
 ** Set or clear a run of nbits starting at
 ** bit_addr in bitmap.
 */
-static void ToggleBitRun(farulong *bitmap, /* Bitmap */
+static void ToggleBitRun(bitfield_t *bitmap, /* Bitmap */
         ulong bit_addr,         /* Address of bits to set */
         ulong nbits,            /* # of bits to set/clr */
         uint val)               /* 1 or 0 */
@@ -363,7 +368,10 @@ static void ToggleBitRun(farulong *bitmap, /* Bitmap */
 
     while(nbits--)
     {
-#ifdef LONG64
+#if defined(DOS16)
+        bindex=bit_addr>>4;     /* Index is number /16 */
+        bitnumb=bit_addr % 16;  /* bit number in word */
+#elif defined(LONG64)
         bindex=bit_addr>>6;     /* Index is number /64 */
         bitnumb=bit_addr % 64;   /* Bit number in word */
 #else
@@ -384,7 +392,7 @@ static void ToggleBitRun(farulong *bitmap, /* Bitmap */
 ****************
 ** Complements a run of bits.
 */
-static void FlipBitRun(farulong *bitmap,        /* Bit map */
+static void FlipBitRun(bitfield_t *bitmap,        /* Bit map */
         ulong bit_addr,                 /* Bit address */
         ulong nbits)                    /* # of bits to flip */
 {
@@ -393,7 +401,10 @@ static void FlipBitRun(farulong *bitmap,        /* Bit map */
 
     while(nbits--)
     {
-#ifdef LONG64
+#if defined(DOS16)
+        bindex=bit_addr>>4;     /* Index is number /16 */
+        bitnumb=bit_addr % 16;  /* bit number in word */
+#elif defined(LONG64)
         bindex=bit_addr>>6;     /* Index is number /64 */
         bitnumb=bit_addr % 64;  /* Bit number in longword */
 #else

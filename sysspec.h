@@ -61,17 +61,6 @@ extern long MacHSTdelay,MacHSTohead;
 #endif
 
 /*
-** Windows 3.1 timer defines
-*/
-#ifdef WIN31TIMER
-#include <windows.h>
-#include <toolhelp.h>
-TIMERINFO win31tinfo;
-HANDLE hThlp;
-FARPROC lpfn;
-#endif
-
-/*
 ** TYPEDEFS
 */
 typedef struct {
@@ -101,14 +90,14 @@ extern int global_align;
 **   FUNCTION PROTOTYPES   **
 ****************************/
 
-farvoid *AllocateMemory(unsigned long nbytes,
+void *AllocateMemory(unsigned long nbytes,
                 int *errorcode);
 
-void FreeMemory(farvoid *mempointer,
+void FreeMemory(void *mempointer,
                 int *errorcode);
 
-void MoveMemory( farvoid *destination,
-                farvoid *source,
+void MoveMemory( void *destination,
+                void *source,
                 unsigned long nbytes);
 
 void InitMemArray(void);

@@ -1,6 +1,6 @@
 
 /*
-** nbench0.c
+** nbench.c
 */
 
 /*******************************************
@@ -53,7 +53,7 @@
 #include <math.h>
 #include "nmglobal.h"
 #include "sysspec.h"
-#include "nbench0.h"
+#include "nbench.h"
 #ifdef LINUX
 #include "hardware.h"
 #endif
@@ -149,34 +149,6 @@ int main(int argc, char *argv[])
 
 #ifdef MAC
     MaxApplZone();
-#endif
-
-#ifdef MACTIMEMGR
-    /* Set up high res timer */
-    MacHSTdelay=600*1000*1000;      /* Delay is 10 minutes */
-
-    memset((char *)&myTMTask,0,sizeof(TMTask));
-
-    /* Prime and remove the task, calculating overhead */
-    PrimeTime((QElemPtr)&myTMTask,-MacHSTdelay);
-    RmvTime((QElemPtr)&myTMTask);
-    MacHSTohead=MacHSTdelay+myTMTask.tmCount;
-#endif
-
-#ifdef WIN31TIMER
-    /* Set up the size of the timer info structure */
-    win31tinfo.dwSize=(DWORD)sizeof(TIMERINFO);
-    /* Load library */
-    if((hThlp=LoadLibrary("TOOLHELP.DLL"))<32)
-    {
-        printf("Error loading TOOLHELP\n");
-        exit(0);
-    }
-    if(!(lpfn=GetProcAddress(hThlp,"TimerCount")))
-    {
-        printf("TOOLHELP error\n");
-        exit(0);
-    }
 #endif
 
     /*
@@ -319,7 +291,8 @@ int main(int argc, char *argv[])
      */
 #ifdef LINUX
     output_string("\nTEST                : Iterations/sec.  : Old Index   : New Index\n");
-    output_string("                    :                  : Pentium 90* : AMD K6/233*\n");
+/*  output_string("                    :                  : Pentium 90* : AMD K6/233*\n"); */
+    output_string("                    :                  : 8088 4.77*  : AMD K6/233*\n");
     output_string("--------------------:------------------:-------------:------------\n");
 #endif
 
@@ -327,8 +300,11 @@ int main(int argc, char *argv[])
     {
         if(tests_to_do[i])
         {
+            StopWatchStruct stopwatch;
+            ResetStopWatch(&stopwatch);
             sprintf(buffer,"%s    :",ftestnames[i]);
             output_string(buffer);
+            StartStopWatch(&stopwatch);
             if (0!=bench_with_confidence(i,
                         &bmean,
                         &bstdev,
@@ -337,12 +313,15 @@ int main(int argc, char *argv[])
                 output_string("** WARNING: The variation among the individual results is too large.\n");
                 output_string("                    :");
             }
+            StopStopWatch(&stopwatch);
 #ifdef LINUX
             sprintf(buffer," %15.5g  :  %9.2f  :  %9.2f\n",
-                    bmean,bmean/bindex[i],bmean/lx_bindex[i]);
+/*                  bmean,bmean/bindex[i],bmean/lx_bindex[i]); */
+                    bmean,bmean/bindex0[i],bmean/lx_bindex[i]);
 #else
-            sprintf(buffer,"  Iterations/sec.: %15.4f  Index: %9.4f\n",
-                    bmean,bmean/bindex[i]);
+            sprintf(buffer,"  Iterations/sec.: %15.5g  Index: %9.2f\n",
+/*                  bmean,bmean/bindex[i]); */
+                    bmean,bmean/bindex0[i]);
 #endif
             output_string(buffer);
             /*
@@ -350,13 +329,15 @@ int main(int argc, char *argv[])
              */
             if((i==4)||(i==8)||(i==9)){
                 /* FP index */
-                fpindex=fpindex*(bmean/bindex[i]);
+/*              fpindex=fpindex*(bmean/bindex[i]); */
+                fpindex=fpindex*(bmean/bindex0[i]);
                 /* Linux FP index */
                 lx_fpindex=lx_fpindex*(bmean/lx_bindex[i]);
             }
             else{
                 /* Integer index */
-                intindex=intindex*(bmean/bindex[i]);
+/*              intindex=intindex*(bmean/bindex[i]); */
+                intindex=intindex*(bmean/bindex0[i]);
                 if((i==0)||(i==3)||(i==6)||(i==7))
                     /* Linux integer index */
                     lx_intindex=lx_intindex*(bmean/lx_bindex[i]);
@@ -378,6 +359,8 @@ int main(int argc, char *argv[])
                 sprintf(buffer,"  Number of runs: %lu\n",bnumrun);
                 output_string(buffer);
                 show_stats(i);
+                sprintf(buffer,"  Elapsed:  %.3f seconds\n", stopwatch.realsecs);
+                output_string(buffer);
                 sprintf(buffer,"Done with %s\n\n",ftestnames[i]);
                 output_string(buffer);
             }
@@ -397,7 +380,8 @@ int main(int argc, char *argv[])
         sprintf(buffer,"FLOATING-POINT INDEX: %.3f\n",
                 pow(fpindex,(double).33333));
         output_string(buffer);
-        output_string("Baseline (MSDOS*)   : Pentium* 90, 256 KB L2-cache, Watcom* compiler 10.0\n");
+/*      output_string("Baseline (MSDOS*)   : Pentium* 90, 256 KB L2-cache, Watcom* compiler 10.0\n"); */
+        output_string("Baseline (MSDOS*)   : 86Box IBM PC XT 8088 4.77MHz,  Watcom* compiler 10.0\n");
 #ifdef LINUX
         output_string("==============================LINUX DATA BELOW===============================\n");
         hardware(write_to_file, global_ofile);
@@ -1162,7 +1146,7 @@ static void show_stats (int bid)
             sprintf(buffer,"  Array size: %lu\n",
                     global_ideastruct.arraysize);
             output_string(buffer);
-            sprintf(buffer," Number of loops: %lu\n",
+            sprintf(buffer,"  Number of loops: %lu\n",
                     global_ideastruct.loops);
             output_string(buffer);
             break;

@@ -111,7 +111,7 @@ void EmFloatDataSetup(TestControlStruct *locemfloatstruct, EmFloatData *emfloatd
     if(systemerror)
     {
         ReportError(locemfloatstruct->errorcontext,systemerror);
-        FreeMemory((farvoid *)emfloatdata->abase,&systemerror);
+        FreeMemory((void *)emfloatdata->abase,&systemerror);
         ErrorExit();
     }
 
@@ -120,8 +120,8 @@ void EmFloatDataSetup(TestControlStruct *locemfloatstruct, EmFloatData *emfloatd
     if(systemerror)
     {
         ReportError(locemfloatstruct->errorcontext,systemerror);
-        FreeMemory((farvoid *)emfloatdata->abase,&systemerror);
-        FreeMemory((farvoid *)emfloatdata->bbase,&systemerror);
+        FreeMemory((void *)emfloatdata->abase,&systemerror);
+        FreeMemory((void *)emfloatdata->bbase,&systemerror);
         ErrorExit();
     }
 
@@ -140,9 +140,9 @@ void EmFloatDataCleanup(EmFloatData *emfloatdata)
 {
     int systemerror;                /* For holding error code */
 
-    FreeMemory((farvoid *)emfloatdata->abase,&systemerror);
-    FreeMemory((farvoid *)emfloatdata->bbase,&systemerror);
-    FreeMemory((farvoid *)emfloatdata->cbase,&systemerror);
+    FreeMemory((void *)emfloatdata->abase,&systemerror);
+    FreeMemory((void *)emfloatdata->bbase,&systemerror);
+    FreeMemory((void *)emfloatdata->cbase,&systemerror);
 }
 
 /********************

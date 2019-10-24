@@ -1,6 +1,6 @@
 /*
-** nbench0.h
-** Header for nbench0.c
+** nbench.h
+** Header for nbench.c
 ** BYTEmark (tm)
 ** BYTE's Native Mode Benchmarks
 ** Rick Grehan, BYTE Magazine
@@ -28,7 +28,7 @@
 ** Following should be modified accordingly per each
 ** compilation.
 */
-char *sysname="You can enter your system description in nbench0.h";
+char *sysname="You can enter your system description in nbench.h";
 char *compilername="It then will be printed here after you recompile";
 char *compilerversion="Have a nice day";
 
@@ -115,15 +115,31 @@ char *ftestnames[] = {
         "LU DECOMPOSITION" };
 
 /*
+** Indexes -- Baseline is 86BOX Emulated PC XT with 4.77MHz 8088
+** 10/23/19
+*/
+double bindex0[] = {
+    0.0406339,                  /* Numeric sort */
+   0.00849834,                  /* String sort */
+       9565.7,                  /* Bitfield */
+    0.0248942,                  /* FP Emulation */
+       3.7675,                  /* Fourier */
+   0.00163942,                  /* Assignment */
+     0.173511,                  /* IDEA */
+     0.074331,                  /* Huffman */
+   0.00105708,                  /* Neural Net */
+    0.0306589 };                /* LU Decomposition */
+
+/*
 ** Indexes -- Baseline is DELL Pentium XP90
 ** 11/28/94
 */
 double bindex[] = {
     38.993,                     /* Numeric sort */
     2.238,                      /* String sort */
-    5829704*BITOPS_PER_UNIT,                    /* Bitfield */
+    5829704,                    /* Bitfield */
     2.084,                      /* FP Emulation */
-    879.278*FLOPS_PER_UNIT,                    /* Fourier */
+    879.278,                    /* Fourier */
     .2628,                      /* Assignment */
     65.382,                     /* IDEA */
     36.062,                     /* Huffman */
@@ -138,9 +154,9 @@ double bindex[] = {
 double lx_bindex[] = {
       118.73, 	    /* Numeric sort */
       14.459,	    /* String sort */
-    27910000*BITOPS_PER_UNIT,	    /* Bitfield */
+    27910000,	    /* Bitfield */
       9.0314,	    /* FP Emulation */
-      1565.5*FLOPS_PER_UNIT,	    /* Fourier */
+      1565.5,	    /* Fourier */
       1.0132,	    /* Assignment */
       220.21,	    /* IDEA */
       112.93,	    /* Huffman */
@@ -203,30 +219,6 @@ char *argv[20];                 /* Argument vectors */
 unsigned char Uargbuff[129];    /* Buffer holding arguments string */
 unsigned char Udummy[2];        /* Dummy buffer for first arg */
 
-#endif
-
-#ifdef MACTIMEMGR
-#include <Types.h>
-#include <Timer.h>
-/*
-** Timer globals for Mac
-*/
-struct TMTask myTMTask;
-long MacHSTdelay,MacHSTohead;
-
-#endif
-
-/*
-** Following globals used by Win 31 timing routines.
-** NOTE: This requires the includes of the w31timer.asm
-** file in your project!!
-*/
-#ifdef WIN31TIMER
-#include <windows.h>
-#include <toolhelp.h>
-extern TIMERINFO win31tinfo;
-extern HANDLE hThlp;
-extern FARPROC lpfn;
 #endif
 
 /*

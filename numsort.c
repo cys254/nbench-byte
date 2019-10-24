@@ -63,17 +63,17 @@ void DoNumSort(void);
 void DoNumSortAdjust(TestControlStruct *numsortstruct);
 
 static void *NumSortFunc(void *data);
-static void DoNumSortIteration(farlong *arraybase,
+static void DoNumSortIteration(long *arraybase,
 		ulong arraysize,
 		uint numarrays,
         StopWatchStruct *stopwatch);
-static void LoadNumArrayWithRand(farlong *array,
+static void LoadNumArrayWithRand(long *array,
 		ulong arraysize,
 		uint numarrays);
-static void NumHeapSort(farlong *array,
+static void NumHeapSort(long *array,
 		ulong bottom,
 		ulong top);
-static void NumSift(farlong *array,
+static void NumSift(long *array,
 		ulong i,
 		ulong j);
 
@@ -124,7 +124,7 @@ void DoNumSortAdjust(TestControlStruct *numsortstruct)
          ** are built and sorted.  This process continues until
          ** enough arrays are built to handle the tolerance.
          */
-        farlong *arraybase;     /* Base pointers of array */
+        long *arraybase;     /* Base pointers of array */
         int systemerror;        /* For holding error codes */
         StopWatchStruct stopwatch;             /* Stop watch to time the test */
         numsortstruct->numarrays=1;
@@ -133,13 +133,13 @@ void DoNumSortAdjust(TestControlStruct *numsortstruct)
             /*
              ** Allocate space for arrays
              */
-            arraybase=(farlong *)AllocateMemory(sizeof(long) *
+            arraybase=(long *)AllocateMemory(sizeof(long) *
                     numsortstruct->numarrays * numsortstruct->arraysize,
                     &systemerror);
             if(systemerror)
             {
                 ReportError(numsortstruct->errorcontext,systemerror);
-                FreeMemory((farvoid *)arraybase,
+                FreeMemory((void *)arraybase,
                         &systemerror);
                 ErrorExit();
             }
@@ -155,7 +155,7 @@ void DoNumSortAdjust(TestControlStruct *numsortstruct)
                         numsortstruct->arraysize,
                         numsortstruct->numarrays,
                         &stopwatch);
-            FreeMemory((farvoid *)arraybase,&systemerror);
+            FreeMemory((void *)arraybase,&systemerror);
             if (stopwatch.realsecs > global_min_itersec)
                 break;          /* We're ok...exit */
             numsortstruct->numarrays *= 2;
@@ -175,19 +175,19 @@ void *NumSortFunc(void *data)
     TestThreadData *testdata;              /* test data passed from thread func */
     TestControlStruct *numsortstruct;      /* Local pointer to global struct */
     StopWatchStruct stopwatch;             /* Stop watch to time the test */
-    farlong *arraybase;     /* Base pointers of array */
+    long *arraybase;     /* Base pointers of array */
     int systemerror;        /* For holding error codes */
 
     testdata = (TestThreadData *)data;
     numsortstruct = testdata->control;
 
-    arraybase=(farlong *)AllocateMemory(sizeof(long) *
+    arraybase=(long *)AllocateMemory(sizeof(long) *
                numsortstruct->numarrays * numsortstruct->arraysize,
                &systemerror);
     if(systemerror)
     {
         ReportError(numsortstruct->errorcontext,systemerror);
-        FreeMemory((farvoid *)arraybase,
+        FreeMemory((void *)arraybase,
                     &systemerror);
         ErrorExit();
     }
@@ -211,7 +211,7 @@ void *NumSortFunc(void *data)
      ** Clean up, calculate results, and go home.  Be sure to
      ** show that we don't have to rerun adjustment code.
      */
-    FreeMemory((farvoid *)arraybase,&systemerror);
+    FreeMemory((void *)arraybase,&systemerror);
 
     testdata->result.cpusecs = stopwatch.cpusecs;
     testdata->result.realsecs = stopwatch.realsecs;
@@ -225,7 +225,7 @@ void *NumSortFunc(void *data)
 ** sort benchmark.  It returns the number of ticks
 ** elapsed for the iteration.
 */
-static void DoNumSortIteration(farlong *arraybase,
+static void DoNumSortIteration(long *arraybase,
         ulong arraysize,
         uint numarrays,
         StopWatchStruct *stopwatch)
@@ -273,12 +273,12 @@ static void DoNumSortIteration(farlong *arraybase,
 **************************
 ** Load up an array with random longs.
 */
-static void LoadNumArrayWithRand(farlong *array,     /* Pointer to arrays */
+static void LoadNumArrayWithRand(long *array,     /* Pointer to arrays */
         ulong arraysize,
         uint numarrays)         /* # of elements in array */
 {
     long i;                 /* Used for index */
-    farlong *darray;        /* Destination array pointer */
+    long *darray;        /* Destination array pointer */
     /*
      ** Initialize the random number generator
      */
@@ -313,7 +313,7 @@ static void LoadNumArrayWithRand(farlong *array,     /* Pointer to arrays */
 ** integers.  Also pass in minimum and maximum offsets.
 ** This routine performs a heap sort on that array.
 */
-static void NumHeapSort(farlong *array,
+static void NumHeapSort(long *array,
     ulong bottom,           /* Lower bound */
     ulong top)              /* Upper bound */
 {
@@ -346,7 +346,7 @@ static void NumHeapSort(farlong *array,
 ** Peforms the sift operation on a numeric array,
 ** constructing a heap in the array.
 */
-static void NumSift(farlong *array,     /* Array of numbers */
+static void NumSift(long *array,     /* Array of numbers */
     ulong i,                /* Minimum of array */
     ulong j)                /* Maximum of array */
 {
