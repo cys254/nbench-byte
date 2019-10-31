@@ -142,8 +142,10 @@ int main(int argc, char *argv[])
     double lx_memindex;     /* Linux memory index (mainly integer operations)*/
     double lx_intindex;     /* Linux integer index */
     double lx_fpindex;      /* Linux floating-point index */
+    double lx_gindex;       /* Linux general index */
     double intindex;        /* Integer index */
     double fpindex;         /* Floating-point index */
+    double gindex;          /* General index */
     ulong bnumrun;          /* # of runs */
     char buffer[BUF_SIZ];   /* Buffer for holding output text. */
 
@@ -163,8 +165,10 @@ int main(int argc, char *argv[])
     lx_memindex=(double)1.0;        /* set for geometric mean computations */
     lx_intindex=(double)1.0;
     lx_fpindex=(double)1.0;
+    lx_gindex=(double)1.0;
     intindex=(double)1.0;
     fpindex=(double)1.0;
+    gindex=(double)1.0;
     mem_array_ents=0;               /* Nothing in mem array */
 
     InitStopWatch();
@@ -292,7 +296,7 @@ int main(int argc, char *argv[])
 #ifdef LINUX
     output_string("\nTEST                : Iterations/sec.  : Old Index   : New Index\n");
 /*  output_string("                    :                  : Pentium 90* : AMD K6/233*\n"); */
-    output_string("                    :                  : 8088 4.77*  : AMD K6/233*\n");
+    output_string("                    :                  : 8088 4.77*  : i386DX/16*\n");
     output_string("--------------------:------------------:-------------:------------\n");
 #endif
 
@@ -316,11 +320,9 @@ int main(int argc, char *argv[])
             StopStopWatch(&stopwatch);
 #ifdef LINUX
             sprintf(buffer," %15.5g  :  %9.2f  :  %9.2f\n",
-/*                  bmean,bmean/bindex[i],bmean/lx_bindex[i]); */
-                    bmean,bmean/bindex0[i],bmean/lx_bindex[i]);
+                    bmean,bmean/bindex0[i],bmean/lx_bindex0[i]);
 #else
             sprintf(buffer,"  Iterations/sec.: %15.5g  Index: %9.2f\n",
-/*                  bmean,bmean/bindex[i]); */
                     bmean,bmean/bindex0[i]);
 #endif
             output_string(buffer);
@@ -329,22 +331,22 @@ int main(int argc, char *argv[])
              */
             if((i==4)||(i==8)||(i==9)){
                 /* FP index */
-/*              fpindex=fpindex*(bmean/bindex[i]); */
                 fpindex=fpindex*(bmean/bindex0[i]);
                 /* Linux FP index */
-                lx_fpindex=lx_fpindex*(bmean/lx_bindex[i]);
+                lx_fpindex=lx_fpindex*(bmean/lx_bindex0[i]);
             }
             else{
                 /* Integer index */
-/*              intindex=intindex*(bmean/bindex[i]); */
                 intindex=intindex*(bmean/bindex0[i]);
                 if((i==0)||(i==3)||(i==6)||(i==7))
                     /* Linux integer index */
-                    lx_intindex=lx_intindex*(bmean/lx_bindex[i]);
+                    lx_intindex=lx_intindex*(bmean/lx_bindex0[i]);
                 else
                     /* Linux memory index */
-                    lx_memindex=lx_memindex*(bmean/lx_bindex[i]);
+                    lx_memindex=lx_memindex*(bmean/lx_bindex0[i]);
             }
+	    gindex *= bmean/bindex0[i];
+	    lx_gindex *= bmean/lx_bindex0[i];
 
             if(global_allstats)
             {
@@ -380,6 +382,9 @@ int main(int argc, char *argv[])
         sprintf(buffer,"FLOATING-POINT INDEX: %.3f\n",
                 pow(fpindex,(double).33333));
         output_string(buffer);
+        sprintf(buffer,"GENERAL INDEX       : %.3f\n",
+                pow(gindex,(double).1));
+        output_string(buffer);
 /*      output_string("Baseline (MSDOS*)   : Pentium* 90, 256 KB L2-cache, Watcom* compiler 10.0\n"); */
         output_string("Baseline (MSDOS*)   : 86Box IBM PC XT 8088 4.77MHz,  Watcom* compiler 10.0\n");
 #ifdef LINUX
@@ -395,9 +400,12 @@ int main(int argc, char *argv[])
         sprintf(buffer,"FLOATING-POINT INDEX: %.3f\n",
                 pow(lx_fpindex,(double).3333333333));
         output_string(buffer);
-        output_string("Baseline (LINUX)    : AMD K6/233*, 512 KB L2-cache, gcc 2.7.2.3, libc-5.4.38\n");
+        sprintf(buffer,"GENERAL INDEX       : %.3f\n",
+                pow(lx_gindex,(double).1));
+        output_string(buffer);
+        output_string("Baseline (LINUX)    : i386DX/16*, 64 KB cache, gcc 2.7.2.3, libc-5.4.33\n");
 #endif
-        output_string("* Trademarks are property of their respective holder.\n");
+/*      output_string("* Trademarks are property of their respective holder.\n"); */
     }
 
     exit(0);

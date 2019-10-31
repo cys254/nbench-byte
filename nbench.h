@@ -147,6 +147,23 @@ double bindex[] = {
     19.3031 };                  /* LU Decomposition */
 
 /*
+** Indices -- Baseline is a 86Box emulating i386DX-16, 8MB RAM, 64k L2 cache,
+** Linux kernel 2.0.30, libc-5.4.33, gcc-2.7.2.3)
+** Oct/31/19
+*/
+double lx_bindex0[] = {
+      1.6547, 	    /* Numeric sort */
+     0.29066,	    /* String sort */
+      305480,	    /* Bitfield */
+     0.12649,	    /* FP Emulation */
+       37.46,	    /* Fourier */
+     0.01493,	    /* Assignment */
+      2.5893,	    /* IDEA */
+      1.2841,	    /* Huffman */
+    0.021317,	    /* Neural Net */
+     0.75926};      /* LU Decomposition */
+
+/*
 ** Indices -- Baseline is a AMD K6-233, 32MB RAM (60ns SDRAM),512k L2 cache,
 ** Linux kernel 2.0.32, libc-5.4.38, gcc-2.7.2.3)
 ** Nov/30/97

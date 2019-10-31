@@ -31,7 +31,10 @@
 #endif
 
 /* to avoid compiling issue in linux */
+#ifdef LINUX
 #include <stdlib.h>
+#include <sys/types.h>
+#endif
 
 /*
 ** SYSTEM DEFINES
