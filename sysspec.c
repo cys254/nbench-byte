@@ -748,6 +748,9 @@ void StartStopWatch(StopWatchStruct *stopwatch)
         stopwatch->ticks = (unsigned long)clock();
     }
 #else
+#ifdef GETTIMEOFDAY
+    gettimeofday(&stopwatch->realtime, 0);
+#endif
     stopwatch->ticks = (unsigned long)clock();
 #endif
 }
@@ -789,6 +792,11 @@ void StopStopWatch(StopWatchStruct *stopwatch)
 #elif defined(CLOCKWCPS)
     stopwatch->cpusecs += (double)((unsigned long)clock() - stopwatch->ticks)/(double)CLOCKS_PER_SEC;
     stopwatch->realsecs = stopwatch->cpusecs;
+#elif defined(GETTIMEOFDAY)
+    struct timeval realtime;
+    gettimeofday(&realtime, 0);
+    stopwatch->realsecs += (double)(realtime.tv_sec - stopwatch->realtime.tv_sec) + (double)(realtime.tv_usec - stopwatch->realtime.tv_usec)*1e-6;
+    stopwatch->cpusecs += (double)((unsigned long)clock() - stopwatch->ticks)/(double)CLOCKS_PER_SEC;
 #endif
 }
 

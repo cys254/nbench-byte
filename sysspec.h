@@ -48,6 +48,10 @@
 #include "alloc.h"
 */
 
+#ifdef GETTIMEOFDAY
+#include <sys/time.h>
+#endif
+
 /*
 ** MAC Time Manager routines (from Code Warrior)
 */
@@ -73,6 +77,9 @@ typedef struct {
 #ifdef CLOCK_GETTIME
     struct timespec cputime;
     struct timespec realtime;
+#endif
+#ifdef GETTIMEOFDAY
+    struct timeval realtime;
 #endif
     ulong ticks;
     double cpusecs;

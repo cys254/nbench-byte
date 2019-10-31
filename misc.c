@@ -23,7 +23,7 @@
 #include "nmglobal.h"
 #include "misc.h"
 
-#if defined(LINUX) || defined(OSX)
+#ifdef USE_PTHREAD
 #include <pthread.h>
 #include "sysspec.h"
 #endif
@@ -133,7 +133,7 @@ int32 randnum(int32 lngval)
 */
 void run_bench_with_concurrency(TestControlStruct *testctl, void *(*thread_func)(void *))
 {
-#if defined(LINUX) || defined(OSX)
+#ifdef USE_PTHREAD
     TestThreadData *testdatas = (TestThreadData *)malloc(sizeof(TestThreadData)*global_concurrency);
     pthread_t *threads = (pthread_t *)malloc(sizeof(pthread_t)*global_concurrency);
     int i;
@@ -141,7 +141,7 @@ void run_bench_with_concurrency(TestControlStruct *testctl, void *(*thread_func)
     TestThreadData testdatas[1];
 #endif
 
-#if defined(LINUX) || defined(OSX)
+#ifdef USE_PTHREAD
     for (i=1;i<global_concurrency;i++) {
         int systemerror;        /* For holding error codes */
         testdatas[i].control = testctl;
@@ -160,7 +160,7 @@ void run_bench_with_concurrency(TestControlStruct *testctl, void *(*thread_func)
     thread_func(&testdatas[0]);
     testctl->result = testdatas[0].result;
 
-#if defined(LINUX) || defined(OSX)
+#ifdef USE_PTHREAD
     for (i=1;i<global_concurrency;i++) {
         pthread_join(threads[i], 0);
         merge_result(&testctl->result, &testdatas[i].result);

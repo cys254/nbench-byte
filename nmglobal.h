@@ -65,14 +65,21 @@
 **  CLOCKWCT
 **  MACTIMEMGR
 **  WIN31TIMER
+**  GETTIMEOFDAY
 **  CLOCK_GETTIME
 */
+
+/*
+** Define GETTIMEOFDAY if you are using the clock_gettime()
+** This is the default for Linux kernel 2.2.* or earlier
+*/
+/* #define GETTIMEOFDAY */
 
 /*
 ** Define CLOCK_GETTIME if you are using the clock_gettime()
 ** This is the default in most cases and required for multi-thread support.
 */
-#define CLOCK_GETTIME
+/* #define CLOCK_GETTIME */
 
 /*
 ** Define CLOCKWCPS if you are using the clock() routine and the
